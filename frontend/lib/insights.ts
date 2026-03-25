@@ -19,16 +19,17 @@ export function generateInsight(
     insights.push({
       type: "risk",
       message:
-        "Planning activity elevated — increased approval/refusal volatility",
-      action: "Review density and fallback strategies",
+        "Planning refusal signals increasing in target area — elevated volatility",
+      action:
+        "Expect resistance — consider density reduction or fallback scheme",
     });
   }
 
   if (retailSignals.length > 2) {
     insights.push({
       type: "warning",
-      message: "Retail stress signals rising",
-      action: "Re-evaluate tenant demand assumptions",
+      message: "Retail distress signals clustering — tenant demand risk",
+      action: "Stress-test income and covenant assumptions on retail exposure",
     });
   }
 
@@ -37,8 +38,8 @@ export function generateInsight(
     const where = topTrend.location ?? "the market (no location tag)";
     insights.push({
       type: "opportunity",
-      message: `${topTrend.type} activity increasing in ${where}`,
-      action: "Investigate local comparables and pipeline",
+      message: `Approval comps emerging locally — ${topTrend.type} activity building in ${where}`,
+      action: "Supports planning case — review comparables for uplift",
     });
   }
 

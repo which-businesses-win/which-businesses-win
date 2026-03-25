@@ -14,25 +14,25 @@ export function calculateImpact(signals: IngestSignal[]): DealImpact {
   for (const s of signals) {
     if (
       s.type === "planning" &&
-      s.reasons.includes("Negative planning outcome nearby")
+      s.reasons.includes("Planning refusal (hard negative)")
     ) {
-      irrImpact -= 1.2;
-      riskLevel += 2;
+      irrImpact -= 2.0;
+      riskLevel += 3;
       drivers.push("Planning refusal risk");
     }
 
     if (
       s.type === "planning" &&
-      s.reasons.includes("Approval indicates local momentum")
+      s.reasons.includes("Planning approval (positive comp)")
     ) {
-      irrImpact += 0.8;
-      drivers.push("Planning momentum");
+      irrImpact += 1.2;
+      drivers.push("Planning momentum (approval comps)");
     }
 
     if (s.type === "retail") {
       irrImpact -= 0.7;
       riskLevel += 1;
-      drivers.push("Retail demand weakening");
+      drivers.push("Retail / tenant demand stress");
     }
 
     if (s.type === "macro") {

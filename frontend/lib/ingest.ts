@@ -45,6 +45,7 @@ export type IngestSignal = {
   score: number;
   baseScore: number;
   relevance: number;
+  planningWeight: number;
   confidence: number;
   reasons: string[];
   location?: string | null;
@@ -68,68 +69,64 @@ function parsePubDate(pubDate?: string): Date {
   return Number.isNaN(d.getTime()) ? new Date() : d;
 }
 
+/** UK planning–aware structured scoring (weighted, stacked). */
 export function scoreSignal(title: string) {
   const t = title.toLowerCase();
 
   let score = 0;
-  let type = "general";
+  let type: string = "general";
   const reasons: string[] = [];
+  let weight = 1;
 
-  // Planning signals (highest value)
-  if (t.includes("planning") || t.includes("permission")) {
-    score += 40;
+  if (t.includes("refused")) {
+    score += 50;
     type = "planning";
-    reasons.push("Planning signal detected");
-  }
-
-  if (t.includes("refused") || t.includes("rejected")) {
-    score += 25;
-    reasons.push("Negative planning outcome nearby");
+    reasons.push("Planning refusal (hard negative)");
+    weight = 1.5;
   }
 
   if (t.includes("approved") || t.includes("granted")) {
-    score += 20;
-    reasons.push("Approval indicates local momentum");
+    score += 35;
+    type = "planning";
+    reasons.push("Planning approval (positive comp)");
   }
 
-  // Macro
+  if (t.includes("appeal")) {
+    score += 25;
+    type = "planning";
+    reasons.push("Appeal activity (policy uncertainty)");
+  }
+
+  if (t.includes("local plan") || t.includes("policy")) {
+    score += 30;
+    type = "planning";
+    reasons.push("Policy shift signal");
+  }
+
+  if (t.includes("housing shortage") || t.includes("targets missed")) {
+    score += 20;
+    reasons.push("Supply pressure (positive for approvals)");
+  }
+
+  if (t.includes("closures") || t.includes("administration")) {
+    score += 25;
+    type = "retail";
+    reasons.push("Retail distress (tenant risk)");
+  }
+
   if (t.includes("interest rate") || t.includes("inflation")) {
     score += 15;
-    type = "macro";
-    reasons.push("Macro pressure shift");
+    if (type === "general") type = "macro";
+    reasons.push("Macro pressure");
   }
 
-  // Retail / business health
-  if (t.includes("store closures") || t.includes("bankruptcy")) {
-    score += 20;
-    type = "retail";
-    reasons.push("Demand destruction signal");
-  }
-
-  if (t.includes("expansion") || t.includes("growth")) {
-    score += 15;
-    reasons.push("Expansion signal");
-  }
-
-  // Scarcity / urgency
-  if (t.includes("shortage") || t.includes("crisis")) {
-    score += 10;
-    reasons.push("Supply constraint");
-  }
-
-  if (
-    type === "general" &&
-    (t.includes("residential") || t.includes("housing"))
-  ) {
-    score += 12;
-    type = "residential";
-    reasons.push("Residential market signal");
-  }
+  const weightedScore = Math.round(score * weight);
+  const confidence = Math.min(weightedScore / 100, 1);
 
   return {
     type,
-    score,
-    confidence: Math.min(score / 100, 1),
+    score: weightedScore,
+    confidence,
     reasons,
   };
 }
@@ -190,11 +187,13 @@ export async function getIngestSignals(
           reasons.push("Sector match");
         }
 
+        let planningWeight = 0;
         if (type === "planning") {
-          relevance += 20;
+          planningWeight = 20;
+          reasons.push("Planning dominant factor");
         }
 
-        const finalScore = score + relevance;
+        const finalScore = score + relevance + planningWeight;
         const confidence = Math.min(finalScore / 100, 1);
         const signalDate = parsePubDate(item.pubDate);
 
@@ -206,6 +205,7 @@ export async function getIngestSignals(
           score: finalScore,
           baseScore,
           relevance,
+          planningWeight,
           confidence,
           reasons,
           location,
@@ -232,7 +232,8 @@ export async function getIngestSignals(
     }
   }
 
-  results.sort((a, b) => b.score - a.score);
+  const filtered = results.filter((s) => s.score > 30);
+  filtered.sort((a, b) => b.score - a.score);
 
   let trends: TrendRow[] = [];
   try {
@@ -252,5 +253,5 @@ export async function getIngestSignals(
     console.error("Trend aggregation failed:", trendErr);
   }
 
-  return { signals: results, trends };
+  return { signals: filtered, trends };
 }

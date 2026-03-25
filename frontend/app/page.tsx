@@ -266,7 +266,8 @@ export default function Home() {
               Score: {s.score}
               <span style={{ opacity: 0.65, fontSize: "14px", marginLeft: "8px" }}>
                 (base {s.baseScore}
-                {s.relevance > 0 ? ` + relevance ${s.relevance}` : ""})
+                {s.relevance > 0 ? ` + relevance ${s.relevance}` : ""}
+                {s.planningWeight > 0 ? ` + planning ${s.planningWeight}` : ""})
               </span>
               {s.source ? (
                 <span style={{ opacity: 0.65, fontSize: "14px" }}> · {s.source}</span>

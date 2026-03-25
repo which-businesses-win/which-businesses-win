@@ -1,5 +1,6 @@
 import { getIngestSignals } from "@/lib/ingest";
 import { generateInsight } from "@/lib/insights";
+import { calculateImpact } from "@/lib/impact";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -16,9 +17,11 @@ export async function GET(request: Request) {
   });
 
   const insights = generateInsight(data.signals, data.trends);
+  const impact = calculateImpact(data.signals.slice(0, 10));
 
   return Response.json({
     ...data,
     insights,
+    impact,
   });
 }

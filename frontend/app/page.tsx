@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import type { IngestSignal, TrendRow } from "@/lib/ingest";
 import type { Insight } from "@/lib/insights";
+import type { DealImpact } from "@/lib/impact";
 
 const sectors = [
   { name: "UK Housebuilders", score: 78, trend: "up" as const },
@@ -19,6 +20,7 @@ export default function Home() {
   const [signals, setSignals] = useState<IngestSignal[]>([]);
   const [trends, setTrends] = useState<TrendRow[]>([]);
   const [insights, setInsights] = useState<Insight[]>([]);
+  const [impact, setImpact] = useState<DealImpact | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,10 +45,12 @@ export default function Home() {
           signals: IngestSignal[];
           trends?: TrendRow[];
           insights?: Insight[];
+          impact?: DealImpact;
         }) => {
           setSignals(data.signals ?? []);
           setTrends(data.trends ?? []);
           setInsights(data.insights ?? []);
+          setImpact(data.impact ?? null);
         },
       )
       .catch((e: unknown) => {
@@ -54,6 +58,7 @@ export default function Home() {
         setSignals([]);
         setTrends([]);
         setInsights([]);
+        setImpact(null);
       })
       .finally(() => setLoading(false));
   }, [location, sector]);
@@ -68,6 +73,38 @@ export default function Home() {
         fontFamily: "system-ui",
       }}
     >
+      <h2 style={{ marginTop: 0, marginBottom: "12px" }}>Deal impact</h2>
+      <p style={{ opacity: 0.6, fontSize: "14px", marginBottom: "16px" }}>
+        Illustrative IRR delta from headline drivers (top 10 signals only).
+      </p>
+      {!loading && impact ? (
+        <div style={{ marginBottom: "28px", padding: "16px", border: "1px solid #27272a", borderRadius: "12px", background: "#0c0c0c" }}>
+          <div style={{ marginBottom: "12px" }}>
+            <strong>IRR impact:</strong>{" "}
+            <span style={{ color: impact.irrImpact >= 0 ? "#34d399" : "#f87171" }}>
+              {impact.irrImpact > 0 ? "+" : ""}
+              {impact.irrImpact}%
+            </span>
+          </div>
+          <div style={{ marginBottom: "12px" }}>
+            <strong>Risk level:</strong> {impact.riskLevel}
+          </div>
+          {impact.drivers.length > 0 ? (
+            <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "14px", opacity: 0.95 }}>
+              {impact.drivers.map((d, i) => (
+                <li key={i}>{d}</li>
+              ))}
+            </ul>
+          ) : (
+            <p style={{ opacity: 0.7, margin: 0, fontSize: "14px" }}>
+              No drivers matched in this slice.
+            </p>
+          )}
+        </div>
+      ) : loading ? (
+        <div style={{ opacity: 0.7, marginBottom: "28px" }}>Loading impact…</div>
+      ) : null}
+
       <h1 style={{ fontSize: "40px", marginBottom: "30px" }}>
         Which Businesses Win — Live
       </h1>

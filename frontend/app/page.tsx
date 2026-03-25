@@ -1,6 +1,8 @@
-import { getIngestSignals } from "@/lib/ingest";
+"use client";
 
-export const dynamic = "force-dynamic";
+import { useEffect, useState } from "react";
+
+import type { IngestSignal } from "@/lib/ingest";
 
 const sectors = [
   { name: "UK Housebuilders", score: 78, trend: "up" as const },
@@ -10,8 +12,38 @@ const sectors = [
   { name: "Small Landlords", score: 42, trend: "down" as const },
 ];
 
-export default async function Home() {
-  const data = await getIngestSignals();
+export default function Home() {
+  const [location, setLocation] = useState("leeds");
+  const [sector, setSector] = useState("general");
+  const [signals, setSignals] = useState<IngestSignal[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    const loc = location.trim().toLowerCase();
+    if (loc) params.set("location", loc);
+    if (sector && sector !== "general") params.set("sector", sector);
+
+    const qs = params.toString();
+
+    setLoading(true);
+    setError(null);
+
+    fetch(`/api/ingest${qs ? `?${qs}` : ""}`, { cache: "no-store" })
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((data: { signals: IngestSignal[] }) => {
+        setSignals(data.signals ?? []);
+      })
+      .catch((e: unknown) => {
+        setError(e instanceof Error ? e.message : "Failed to load signals");
+        setSignals([]);
+      })
+      .finally(() => setLoading(false));
+  }, [location, sector]);
 
   return (
     <main
@@ -26,6 +58,53 @@ export default async function Home() {
       <h1 style={{ fontSize: "40px", marginBottom: "30px" }}>
         Which Businesses Win — Live
       </h1>
+
+      <div
+        style={{
+          marginBottom: "28px",
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "12px",
+          alignItems: "center",
+        }}
+      >
+        <label style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+          <span style={{ fontSize: "12px", opacity: 0.7 }}>Deal location</span>
+          <input
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="e.g. leeds, manchester"
+            style={{
+              padding: "8px 12px",
+              borderRadius: "8px",
+              border: "1px solid #333",
+              background: "#171717",
+              color: "white",
+              minWidth: "200px",
+            }}
+          />
+        </label>
+        <label style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+          <span style={{ fontSize: "12px", opacity: 0.7 }}>Sector</span>
+          <select
+            value={sector}
+            onChange={(e) => setSector(e.target.value)}
+            style={{
+              padding: "8px 12px",
+              borderRadius: "8px",
+              border: "1px solid #333",
+              background: "#171717",
+              color: "white",
+            }}
+          >
+            <option value="general">General</option>
+            <option value="retail">Retail</option>
+            <option value="residential">Residential</option>
+            <option value="planning">Planning</option>
+            <option value="macro">Macro</option>
+          </select>
+        </label>
+      </div>
 
       {sectors.map((s) => (
         <div
@@ -48,20 +127,28 @@ export default async function Home() {
         </div>
       ))}
 
-      <h2 style={{ marginTop: "40px", marginBottom: "16px" }}>Live Signals</h2>
+      <h2 style={{ marginTop: "40px", marginBottom: "16px" }}>Deal signals</h2>
       <p style={{ opacity: 0.6, fontSize: "14px", marginBottom: "20px" }}>
-        Ranked by headline scoring; reasons explain the call.
+        Filtered and ranked for your deal context (location + sector).
       </p>
 
-      {data.signals.length === 0 ? (
+      {loading ? (
+        <div style={{ opacity: 0.7 }}>Loading signals…</div>
+      ) : error ? (
+        <div style={{ color: "#f87171" }}>{error}</div>
+      ) : signals.length === 0 ? (
         <div style={{ opacity: 0.7 }}>No signals loaded (feeds may be unreachable).</div>
       ) : (
-        data.signals.map((s, i) => (
+        signals.map((s, i) => (
           <div key={`${s.link ?? s.title}-${i}`} style={{ marginBottom: "20px" }}>
             <div>
               <strong style={{ color: "#00ff9d" }}>{s.type.toUpperCase()}</strong>
               {" — "}
               Score: {s.score}
+              <span style={{ opacity: 0.65, fontSize: "14px", marginLeft: "8px" }}>
+                (base {s.baseScore}
+                {s.relevance > 0 ? ` + relevance ${s.relevance}` : ""})
+              </span>
               {s.source ? (
                 <span style={{ opacity: 0.65, fontSize: "14px" }}> · {s.source}</span>
               ) : null}
@@ -81,6 +168,12 @@ export default async function Home() {
                 <span>{s.title}</span>
               )}
             </div>
+
+            {s.location ? (
+              <div style={{ fontSize: 12, marginTop: "4px" }}>
+                📍 {s.location.toUpperCase()}
+              </div>
+            ) : null}
 
             <div style={{ fontSize: 12, opacity: 0.7, marginTop: "4px" }}>
               Confidence: {Math.round(s.confidence * 100)}%

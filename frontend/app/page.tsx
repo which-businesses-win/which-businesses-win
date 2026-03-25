@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import type { ChangeItem } from "@/lib/changes";
 import type { IngestSignal, TrendRow } from "@/lib/ingest";
 import type { Insight } from "@/lib/insights";
 import type { DealImpact } from "@/lib/impact";
@@ -21,6 +22,7 @@ export default function Home() {
   const [trends, setTrends] = useState<TrendRow[]>([]);
   const [insights, setInsights] = useState<Insight[]>([]);
   const [impact, setImpact] = useState<DealImpact | null>(null);
+  const [changes, setChanges] = useState<ChangeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,11 +48,13 @@ export default function Home() {
           trends?: TrendRow[];
           insights?: Insight[];
           impact?: DealImpact;
+          changes?: ChangeItem[];
         }) => {
           setSignals(data.signals ?? []);
           setTrends(data.trends ?? []);
           setInsights(data.insights ?? []);
           setImpact(data.impact ?? null);
+          setChanges(data.changes ?? []);
         },
       )
       .catch((e: unknown) => {
@@ -59,6 +63,7 @@ export default function Home() {
         setTrends([]);
         setInsights([]);
         setImpact(null);
+        setChanges([]);
       })
       .finally(() => setLoading(false));
   }, [location, sector]);
@@ -73,12 +78,44 @@ export default function Home() {
         fontFamily: "system-ui",
       }}
     >
-      <h2 style={{ marginTop: 0, marginBottom: "12px" }}>Deal impact</h2>
+      <h2 style={{ marginTop: 0, marginBottom: "12px" }}>What changed</h2>
       <p style={{ opacity: 0.6, fontSize: "14px", marginBottom: "16px" }}>
-        Illustrative IRR delta from headline drivers (top 10 signals only).
+        New rows today vs high-impact activity in this run.
+      </p>
+      {!loading && changes.length > 0 ? (
+        <div style={{ marginBottom: "28px" }}>
+          {changes.map((c, i) => (
+            <div key={i} style={{ marginBottom: "12px" }}>
+              <strong style={{ color: c.type === "rising" ? "#fbbf24" : "#38bdf8" }}>
+                {c.type.toUpperCase()}
+              </strong>
+              {" — "}
+              {c.message}
+            </div>
+          ))}
+        </div>
+      ) : !loading && changes.length === 0 && !error ? (
+        <p style={{ opacity: 0.65, marginBottom: "28px" }}>
+          No change alerts — same as a quiet day in the feed.
+        </p>
+      ) : loading ? (
+        <div style={{ opacity: 0.7, marginBottom: "28px" }}>Loading…</div>
+      ) : null}
+
+      <h2 style={{ marginBottom: "12px" }}>Deal impact</h2>
+      <p style={{ opacity: 0.6, fontSize: "14px", marginBottom: "16px" }}>
+        Illustrative IRR delta from headline drivers (top signals only).
       </p>
       {!loading && impact ? (
-        <div style={{ marginBottom: "28px", padding: "16px", border: "1px solid #27272a", borderRadius: "12px", background: "#0c0c0c" }}>
+        <div
+          style={{
+            marginBottom: "28px",
+            padding: "16px",
+            border: "1px solid #27272a",
+            borderRadius: "12px",
+            background: "#0c0c0c",
+          }}
+        >
           <div style={{ marginBottom: "12px" }}>
             <strong>IRR impact:</strong>{" "}
             <span style={{ color: impact.irrImpact >= 0 ? "#34d399" : "#f87171" }}>
@@ -158,8 +195,7 @@ export default function Home() {
 
       <h2 style={{ marginTop: "8px", marginBottom: "12px" }}>What this means</h2>
       <p style={{ opacity: 0.6, fontSize: "14px", marginBottom: "16px" }}>
-        Risk, warning, and opportunity — derived from this run&apos;s signals and
-        stored patterns.
+        Risk, warning, and opportunity — from high-conviction signals and stored patterns.
       </p>
       {!loading && insights.length > 0 ? (
         <div style={{ marginBottom: "32px" }}>
@@ -246,29 +282,41 @@ export default function Home() {
         </p>
       ) : null}
 
-      <h2 style={{ marginTop: "40px", marginBottom: "16px" }}>Deal signals</h2>
-      <p style={{ opacity: 0.6, fontSize: "14px", marginBottom: "20px" }}>
-        Filtered and ranked for your deal context (location + sector).
+      <h2 style={{ marginTop: "40px", marginBottom: "12px" }}>Top signals</h2>
+      <p style={{ opacity: 0.6, fontSize: "14px", marginBottom: "12px" }}>
+        Medium &amp; high conviction only — max five.
       </p>
+      <div style={{ marginBottom: "20px", fontWeight: "bold" }}>
+        {signals.length > 0
+          ? `Only ${signals.length} signal${signals.length === 1 ? "" : "s"} currently matter for this deal`
+          : "No high-conviction signals detected"}
+      </div>
 
       {loading ? (
         <div style={{ opacity: 0.7 }}>Loading signals…</div>
       ) : error ? (
         <div style={{ color: "#f87171" }}>{error}</div>
       ) : signals.length === 0 ? (
-        <div style={{ opacity: 0.7 }}>No signals loaded (feeds may be unreachable).</div>
+        <div style={{ opacity: 0.7 }}>Nothing crossed the conviction bar for this deal context.</div>
       ) : (
         signals.map((s, i) => (
-          <div key={`${s.link ?? s.title}-${i}`} style={{ marginBottom: "20px" }}>
+          <div key={`${s.link ?? s.title}-${i}`} style={{ marginBottom: "24px" }}>
+            {s.impactFlag ? (
+              <div
+                style={{
+                  color: s.impactFlag.includes("CHANGES") ? "#f87171" : "#fb923c",
+                  fontWeight: "bold",
+                  marginBottom: "8px",
+                }}
+              >
+                {s.impactFlag}
+              </div>
+            ) : null}
+
             <div>
               <strong style={{ color: "#00ff9d" }}>{s.type.toUpperCase()}</strong>
               {" — "}
               Score: {s.score}
-              <span style={{ opacity: 0.65, fontSize: "14px", marginLeft: "8px" }}>
-                (base {s.baseScore}
-                {s.relevance > 0 ? ` + relevance ${s.relevance}` : ""}
-                {s.planningWeight > 0 ? ` + planning ${s.planningWeight}` : ""})
-              </span>
               {s.source ? (
                 <span style={{ opacity: 0.65, fontSize: "14px" }}> · {s.source}</span>
               ) : null}
@@ -295,17 +343,9 @@ export default function Home() {
               </div>
             ) : null}
 
-            <div style={{ fontSize: 12, opacity: 0.7, marginTop: "4px" }}>
-              Confidence: {Math.round(s.confidence * 100)}%
+            <div style={{ fontSize: 12, opacity: 0.85, marginTop: "6px" }}>
+              Confidence: {Math.round(s.confidence * 100)}% | {s.conviction}
             </div>
-
-            {s.reasons.length > 0 ? (
-              <ul style={{ margin: "8px 0 0", paddingLeft: "20px", fontSize: "14px", opacity: 0.9 }}>
-                {s.reasons.map((r, j) => (
-                  <li key={j}>{r}</li>
-                ))}
-              </ul>
-            ) : null}
           </div>
         ))
       )}

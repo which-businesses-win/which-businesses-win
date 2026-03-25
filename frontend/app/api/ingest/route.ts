@@ -16,12 +16,14 @@ export async function GET(request: Request) {
     targetSector: targetSector || null,
   });
 
-  const insights = generateInsight(data.signals, data.trends);
+  const insights = generateInsight(data.insightSignals, data.trends);
   const impact = calculateImpact(data.signals.slice(0, 10));
 
   return Response.json({
-    ...data,
+    signals: data.signals,
+    trends: data.trends,
     insights,
     impact,
+    changes: data.changes,
   });
 }

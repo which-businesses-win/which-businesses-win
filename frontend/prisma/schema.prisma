@@ -15,5 +15,5 @@ model Signal {
   score      Int
   confidence Float
   date       DateTime
-  createdAt  DateTime @default(now())
+  firstSeen  DateTime @default(now())
 }

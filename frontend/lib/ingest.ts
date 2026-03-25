@@ -1,5 +1,14 @@
 import Parser from "rss-parser";
 
+import {
+  generateChanges,
+  type ChangeItem,
+} from "@/lib/changes";
+import {
+  getConviction,
+  getImpactFlag,
+  type ConvictionLevel,
+} from "@/lib/conviction";
 import { prisma } from "@/lib/prisma";
 
 const parser = new Parser();
@@ -47,10 +56,15 @@ export type IngestSignal = {
   relevance: number;
   planningWeight: number;
   confidence: number;
+  conviction: ConvictionLevel;
+  impactFlag: string | null;
   reasons: string[];
   location?: string | null;
   date?: string;
 };
+
+/** Before conviction / impact-flag enrichment. */
+type SignalRow = Omit<IngestSignal, "conviction" | "impactFlag">;
 
 export type IngestOptions = {
   targetLocation?: string | null;
@@ -143,13 +157,18 @@ function locationMatchesDeal(
 
 export async function getIngestSignals(
   options?: IngestOptions,
-): Promise<{ signals: IngestSignal[]; trends: TrendRow[] }> {
+): Promise<{
+  signals: IngestSignal[];
+  insightSignals: IngestSignal[];
+  trends: TrendRow[];
+  changes: ChangeItem[];
+}> {
   const targetLocation = options?.targetLocation?.trim() || null;
   const rawSector = options?.targetSector?.trim().toLowerCase() || null;
   const targetSector =
     rawSector && rawSector !== "general" ? rawSector : null;
 
-  const results: IngestSignal[] = [];
+  const results: SignalRow[] = [];
 
   for (const url of FEEDS) {
     try {
@@ -197,6 +216,8 @@ export async function getIngestSignals(
         const confidence = Math.min(finalScore / 100, 1);
         const signalDate = parsePubDate(item.pubDate);
 
+        const rowTitle = title.trim() || "(untitled)";
+
         results.push({
           title,
           link: item.link,
@@ -213,16 +234,21 @@ export async function getIngestSignals(
         });
 
         try {
-          await prisma.signal.create({
-            data: {
-              title: title.trim() || "(untitled)",
-              type,
-              location,
-              score: Math.round(Math.min(finalScore, 1_000_000)),
-              confidence,
-              date: signalDate,
-            },
+          const existing = await prisma.signal.findFirst({
+            where: { title: rowTitle },
           });
+          if (!existing) {
+            await prisma.signal.create({
+              data: {
+                title: rowTitle,
+                type,
+                location,
+                score: Math.round(Math.min(finalScore, 1_000_000)),
+                confidence,
+                date: signalDate,
+              },
+            });
+          }
         } catch (persistErr) {
           console.error("Signal persist failed:", persistErr);
         }
@@ -232,8 +258,35 @@ export async function getIngestSignals(
     }
   }
 
-  const filtered = results.filter((s) => s.score > 30);
-  filtered.sort((a, b) => b.score - a.score);
+  const rising = results.filter((s) => s.score > 70);
+
+  const enriched: IngestSignal[] = results.map((s) => ({
+    ...s,
+    conviction: getConviction(s.score),
+    impactFlag: getImpactFlag(s.score),
+  }));
+
+  const filtered = enriched
+    .filter((s) => s.conviction !== "LOW")
+    .sort((a, b) => b.score - a.score);
+
+  const topSignals = filtered.slice(0, 5);
+  const insightSignals = filtered;
+
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  let newTodaySignals: { id: string }[] = [];
+  try {
+    newTodaySignals = await prisma.signal.findMany({
+      where: { firstSeen: { gte: startOfDay } },
+      select: { id: true },
+    });
+  } catch (e) {
+    console.error("New-today query failed:", e);
+  }
+
+  const changes = generateChanges(newTodaySignals, rising);
 
   let trends: TrendRow[] = [];
   try {
@@ -253,5 +306,5 @@ export async function getIngestSignals(
     console.error("Trend aggregation failed:", trendErr);
   }
 
-  return { signals: filtered, trends };
+  return { signals: topSignals, insightSignals, trends, changes };
 }

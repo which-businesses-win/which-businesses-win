@@ -14,25 +14,66 @@ export type IngestSignal = {
   source?: string;
   type: string;
   score: number;
+  confidence: number;
+  reasons: string[];
   date?: string;
 };
 
-export function classify(title: string) {
+export function scoreSignal(title: string) {
   const t = title.toLowerCase();
 
+  let score = 0;
+  let type = "general";
+  const reasons: string[] = [];
+
+  // Planning signals (highest value)
   if (t.includes("planning") || t.includes("permission")) {
-    return { type: "planning", score: 0.8 };
+    score += 40;
+    type = "planning";
+    reasons.push("Planning signal detected");
   }
 
+  if (t.includes("refused") || t.includes("rejected")) {
+    score += 25;
+    reasons.push("Negative planning outcome nearby");
+  }
+
+  if (t.includes("approved") || t.includes("granted")) {
+    score += 20;
+    reasons.push("Approval indicates local momentum");
+  }
+
+  // Macro
   if (t.includes("interest rate") || t.includes("inflation")) {
-    return { type: "macro", score: 0.6 };
+    score += 15;
+    type = "macro";
+    reasons.push("Macro pressure shift");
   }
 
-  if (t.includes("retail") || t.includes("store closures")) {
-    return { type: "retail", score: 0.7 };
+  // Retail / business health
+  if (t.includes("store closures") || t.includes("bankruptcy")) {
+    score += 20;
+    type = "retail";
+    reasons.push("Demand destruction signal");
   }
 
-  return { type: "general", score: 0.3 };
+  if (t.includes("expansion") || t.includes("growth")) {
+    score += 15;
+    reasons.push("Expansion signal");
+  }
+
+  // Scarcity / urgency
+  if (t.includes("shortage") || t.includes("crisis")) {
+    score += 10;
+    reasons.push("Supply constraint");
+  }
+
+  return {
+    type,
+    score,
+    confidence: Math.min(score / 100, 1),
+    reasons,
+  };
 }
 
 export async function getIngestSignals(): Promise<{ signals: IngestSignal[] }> {
@@ -43,7 +84,7 @@ export async function getIngestSignals(): Promise<{ signals: IngestSignal[] }> {
       const feed = await parser.parseURL(url);
 
       for (const item of feed.items.slice(0, 5)) {
-        const signal = classify(item.title || "");
+        const signal = scoreSignal(item.title || "");
 
         results.push({
           title: item.title,
@@ -51,6 +92,8 @@ export async function getIngestSignals(): Promise<{ signals: IngestSignal[] }> {
           source: feed.title,
           type: signal.type,
           score: signal.score,
+          confidence: signal.confidence,
+          reasons: signal.reasons,
           date: item.pubDate,
         });
       }
@@ -59,7 +102,7 @@ export async function getIngestSignals(): Promise<{ signals: IngestSignal[] }> {
     }
   }
 
-  return {
-    signals: results.sort((a, b) => b.score - a.score),
-  };
+  results.sort((a, b) => b.score - a.score);
+
+  return { signals: results };
 }

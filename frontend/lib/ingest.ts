@@ -1,5 +1,7 @@
 import Parser from "rss-parser";
 
+import { prisma } from "@/lib/prisma";
+
 const parser = new Parser();
 
 export const FEEDS = [
@@ -53,6 +55,18 @@ export type IngestOptions = {
   targetLocation?: string | null;
   targetSector?: string | null;
 };
+
+export type TrendRow = {
+  type: string;
+  location: string | null;
+  count: number;
+};
+
+function parsePubDate(pubDate?: string): Date {
+  if (!pubDate) return new Date();
+  const d = new Date(pubDate);
+  return Number.isNaN(d.getTime()) ? new Date() : d;
+}
 
 export function scoreSignal(title: string) {
   const t = title.toLowerCase();
@@ -132,7 +146,7 @@ function locationMatchesDeal(
 
 export async function getIngestSignals(
   options?: IngestOptions,
-): Promise<{ signals: IngestSignal[] }> {
+): Promise<{ signals: IngestSignal[]; trends: TrendRow[] }> {
   const targetLocation = options?.targetLocation?.trim() || null;
   const rawSector = options?.targetSector?.trim().toLowerCase() || null;
   const targetSector =
@@ -181,6 +195,8 @@ export async function getIngestSignals(
         }
 
         const finalScore = score + relevance;
+        const confidence = Math.min(finalScore / 100, 1);
+        const signalDate = parsePubDate(item.pubDate);
 
         results.push({
           title,
@@ -190,11 +206,26 @@ export async function getIngestSignals(
           score: finalScore,
           baseScore,
           relevance,
-          confidence: Math.min(finalScore / 100, 1),
+          confidence,
           reasons,
           location,
           date: item.pubDate,
         });
+
+        try {
+          await prisma.signal.create({
+            data: {
+              title: title.trim() || "(untitled)",
+              type,
+              location,
+              score: Math.round(Math.min(finalScore, 1_000_000)),
+              confidence,
+              date: signalDate,
+            },
+          });
+        } catch (persistErr) {
+          console.error("Signal persist failed:", persistErr);
+        }
       }
     } catch (e) {
       console.error("Feed error:", url, e);
@@ -203,5 +234,23 @@ export async function getIngestSignals(
 
   results.sort((a, b) => b.score - a.score);
 
-  return { signals: results };
+  let trends: TrendRow[] = [];
+  try {
+    const groups = await prisma.signal.groupBy({
+      by: ["location", "type"],
+      _count: { _all: true },
+    });
+    trends = groups
+      .sort((a, b) => b._count._all - a._count._all)
+      .slice(0, 5)
+      .map((g) => ({
+        type: g.type,
+        location: g.location,
+        count: g._count._all,
+      }));
+  } catch (trendErr) {
+    console.error("Trend aggregation failed:", trendErr);
+  }
+
+  return { signals: results, trends };
 }

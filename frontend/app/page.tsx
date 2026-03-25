@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import type { IngestSignal } from "@/lib/ingest";
+import type { IngestSignal, TrendRow } from "@/lib/ingest";
 
 const sectors = [
   { name: "UK Housebuilders", score: 78, trend: "up" as const },
@@ -16,6 +16,7 @@ export default function Home() {
   const [location, setLocation] = useState("leeds");
   const [sector, setSector] = useState("general");
   const [signals, setSignals] = useState<IngestSignal[]>([]);
+  const [trends, setTrends] = useState<TrendRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,12 +36,14 @@ export default function Home() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
       })
-      .then((data: { signals: IngestSignal[] }) => {
+      .then((data: { signals: IngestSignal[]; trends?: TrendRow[] }) => {
         setSignals(data.signals ?? []);
+        setTrends(data.trends ?? []);
       })
       .catch((e: unknown) => {
         setError(e instanceof Error ? e.message : "Failed to load signals");
         setSignals([]);
+        setTrends([]);
       })
       .finally(() => setLoading(false));
   }, [location, sector]);
@@ -126,6 +129,37 @@ export default function Home() {
           </span>
         </div>
       ))}
+
+      <h2 style={{ marginTop: "40px", marginBottom: "12px" }}>Emerging patterns</h2>
+      <p style={{ opacity: 0.6, fontSize: "14px", marginBottom: "16px" }}>
+        Aggregated from stored signals (location × type).
+      </p>
+      {!loading && trends.length > 0 ? (
+        <div style={{ marginBottom: "28px" }}>
+          {trends.map((t, i) => (
+            <div
+              key={`${t.type}-${t.location ?? "none"}-${i}`}
+              style={{
+                padding: "10px 0",
+                borderBottom: "1px solid #222",
+                fontSize: "15px",
+              }}
+            >
+              <strong style={{ color: "#a78bfa" }}>{t.type}</strong> activity —{" "}
+              {t.location ? (
+                <span>{t.location}</span>
+              ) : (
+                <span style={{ opacity: 0.75 }}>no location tag</span>
+              )}{" "}
+              <span style={{ opacity: 0.65 }}>({t.count} signals)</span>
+            </div>
+          ))}
+        </div>
+      ) : !loading && trends.length === 0 && !error ? (
+        <p style={{ opacity: 0.65, marginBottom: "28px" }}>
+          No pattern history yet — refresh after a few ingests.
+        </p>
+      ) : null}
 
       <h2 style={{ marginTop: "40px", marginBottom: "16px" }}>Deal signals</h2>
       <p style={{ opacity: 0.6, fontSize: "14px", marginBottom: "20px" }}>

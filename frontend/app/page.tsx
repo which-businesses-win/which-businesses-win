@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import type { IngestSignal, TrendRow } from "@/lib/ingest";
+import type { Insight } from "@/lib/insights";
 
 const sectors = [
   { name: "UK Housebuilders", score: 78, trend: "up" as const },
@@ -17,6 +18,7 @@ export default function Home() {
   const [sector, setSector] = useState("general");
   const [signals, setSignals] = useState<IngestSignal[]>([]);
   const [trends, setTrends] = useState<TrendRow[]>([]);
+  const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,14 +38,22 @@ export default function Home() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
       })
-      .then((data: { signals: IngestSignal[]; trends?: TrendRow[] }) => {
-        setSignals(data.signals ?? []);
-        setTrends(data.trends ?? []);
-      })
+      .then(
+        (data: {
+          signals: IngestSignal[];
+          trends?: TrendRow[];
+          insights?: Insight[];
+        }) => {
+          setSignals(data.signals ?? []);
+          setTrends(data.trends ?? []);
+          setInsights(data.insights ?? []);
+        },
+      )
       .catch((e: unknown) => {
         setError(e instanceof Error ? e.message : "Failed to load signals");
         setSignals([]);
         setTrends([]);
+        setInsights([]);
       })
       .finally(() => setLoading(false));
   }, [location, sector]);
@@ -108,6 +118,44 @@ export default function Home() {
           </select>
         </label>
       </div>
+
+      <h2 style={{ marginTop: "8px", marginBottom: "12px" }}>What this means</h2>
+      <p style={{ opacity: 0.6, fontSize: "14px", marginBottom: "16px" }}>
+        Risk, warning, and opportunity — derived from this run&apos;s signals and
+        stored patterns.
+      </p>
+      {!loading && insights.length > 0 ? (
+        <div style={{ marginBottom: "32px" }}>
+          {insights.map((i, idx) => {
+            const color =
+              i.type === "risk"
+                ? "#f87171"
+                : i.type === "warning"
+                  ? "#fbbf24"
+                  : "#34d399";
+            return (
+              <div
+                key={idx}
+                style={{
+                  marginBottom: "16px",
+                  paddingBottom: "16px",
+                  borderBottom: "1px solid #27272a",
+                }}
+              >
+                <strong style={{ color }}>{i.type.toUpperCase()}</strong>
+                <div style={{ marginTop: "6px" }}>{i.message}</div>
+                <div style={{ fontSize: 12, opacity: 0.85, marginTop: "6px" }}>
+                  → {i.action}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : !loading && insights.length === 0 && !error ? (
+        <p style={{ opacity: 0.65, marginBottom: "32px" }}>
+          No automated insights yet — thresholds not met on this run.
+        </p>
+      ) : null}
 
       {sectors.map((s) => (
         <div

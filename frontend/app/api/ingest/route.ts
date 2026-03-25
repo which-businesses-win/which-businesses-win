@@ -1,4 +1,5 @@
 import { getIngestSignals } from "@/lib/ingest";
+import { generateInsight } from "@/lib/insights";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -14,5 +15,10 @@ export async function GET(request: Request) {
     targetSector: targetSector || null,
   });
 
-  return Response.json(data);
+  const insights = generateInsight(data.signals, data.trends);
+
+  return Response.json({
+    ...data,
+    insights,
+  });
 }

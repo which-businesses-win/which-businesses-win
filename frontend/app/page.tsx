@@ -1,11 +1,17 @@
-export default function Home() {
-  const sectors = [
-    { name: "UK Housebuilders", score: 78, trend: "up" },
-    { name: "Build-to-Rent", score: 74, trend: "up" },
-    { name: "Grid Batteries", score: 81, trend: "up" },
-    { name: "High Street Retail", score: 38, trend: "down" },
-    { name: "Small Landlords", score: 42, trend: "down" },
-  ];
+import { getIngestSignals } from "@/lib/ingest";
+
+export const dynamic = "force-dynamic";
+
+const sectors = [
+  { name: "UK Housebuilders", score: 78, trend: "up" as const },
+  { name: "Build-to-Rent", score: 74, trend: "up" as const },
+  { name: "Grid Batteries", score: 81, trend: "up" as const },
+  { name: "High Street Retail", score: 38, trend: "down" as const },
+  { name: "Small Landlords", score: 42, trend: "down" as const },
+];
+
+export default async function Home() {
+  const data = await getIngestSignals();
 
   return (
     <main
@@ -21,7 +27,7 @@ export default function Home() {
         Which Businesses Win — Live
       </h1>
 
-      {sectors.map((s, i) => (
+      {sectors.map((s) => (
         <div
           key={s.name}
           style={{
@@ -42,13 +48,38 @@ export default function Home() {
         </div>
       ))}
 
-      <h2 style={{ marginTop: "40px" }}>Live Signals</h2>
+      <h2 style={{ marginTop: "40px", marginBottom: "16px" }}>Live Signals</h2>
+      <p style={{ opacity: 0.6, fontSize: "14px", marginBottom: "20px" }}>
+        Pulled from RSS; classified by headline keywords.
+      </p>
 
-      <div style={{ marginTop: "20px" }}>
-        <div>[+18] Planning reform momentum increasing</div>
-        <div>[-22] Green belt resistance rising</div>
-        <div>[+12] Capital flowing into BTR</div>
-      </div>
+      {data.signals.length === 0 ? (
+        <div style={{ opacity: 0.7 }}>No signals loaded (feeds may be unreachable).</div>
+      ) : (
+        data.signals.map((s, i) => (
+          <div key={`${s.link ?? s.title}-${i}`} style={{ marginBottom: "16px" }}>
+            <strong style={{ color: "#00ff9d" }}>{s.type.toUpperCase()}</strong>
+            {" — "}
+            {s.link ? (
+              <a
+                href={s.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "#e4e4e7" }}
+              >
+                {s.title}
+              </a>
+            ) : (
+              <span>{s.title}</span>
+            )}
+            <br />
+            <span style={{ opacity: 0.75, fontSize: "14px" }}>
+              Score: {s.score}
+              {s.source ? ` · ${s.source}` : ""}
+            </span>
+          </div>
+        ))
+      )}
     </main>
   );
 }

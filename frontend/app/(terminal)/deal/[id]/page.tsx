@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 
 import { DealTerminal, InvestmentMemoPanel } from "@/components/deal-terminal";
 import type { DealTerminalModel } from "@/components/deal-terminal/types";
-import type { DealDetailMarket } from "@/lib/deals/dealDetailResponse";
+import type { DealAction, DealDetailMarket } from "@/lib/deals/dealDetailResponse";
 
 type DealApiPayload = {
   deal: {
@@ -19,6 +19,7 @@ type DealApiPayload = {
     planningRisk: string;
     decision: string;
     market: DealDetailMarket | null;
+    actions?: DealAction[];
   };
   matchError: string | null;
   message?: string;
@@ -36,6 +37,7 @@ function toTerminalModel(p: DealApiPayload): DealTerminalModel | null {
       planningRisk: p.deal.planningRisk,
       decision: p.deal.decision,
       market: p.deal.market,
+      actions: p.deal.actions,
     },
   };
 }

@@ -15,7 +15,7 @@ import {
   calculateDealSignalImpact,
   findSectorForDeal,
 } from "@/lib/deals/signalImpact";
-import type { DealDetailMarket } from "@/lib/deals/dealDetailResponse";
+import type { DealAction, DealDetailMarket } from "@/lib/deals/dealDetailResponse";
 import type { Insight } from "@/lib/insights";
 import type { DealImpact } from "@/lib/impact";
 import { sectorToBoardRow } from "@/lib/sectors/mappers";
@@ -107,6 +107,7 @@ type DealSignalApiPayload = {
     planningRisk: string;
     decision: string;
     market: DealDetailMarket | null;
+    actions?: DealAction[];
   };
   matchError: string | null;
   message?: string;
@@ -1115,6 +1116,7 @@ export default function Home() {
               planningRisk: dealSignalPayload.deal.planningRisk,
               decision: dealSignalPayload.deal.decision,
               market: dealSignalPayload.deal.market,
+              actions: dealSignalPayload.deal.actions,
             },
           }}
         />

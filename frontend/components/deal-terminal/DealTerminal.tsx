@@ -3,6 +3,7 @@
 import { useId, useMemo, useState } from "react";
 import { formatRelativeTime } from "@/lib/formatRelativeTime";
 import { getSignalLabel } from "@/lib/marketSignalsBoard";
+import { label } from "@/lib/actions";
 import { tldrDecisionVerb } from "@/lib/marketImpact";
 import type { DealMarketDriver } from "@/lib/deals/dealDetailResponse";
 import type { DealTerminalModel } from "./types";
@@ -55,10 +56,22 @@ function scenarioMarkerPct(
   return Math.min(100, Math.max(0, ((base - bear) / span) * 100));
 }
 
-function sortDriversForDisplay(drivers: DealMarketDriver[]): DealMarketDriver[] {
-  return [...drivers].sort(
-    (a, b) => Math.abs(b.impact ?? 0) - Math.abs(a.impact ?? 0),
-  );
+/** Strongest first within polarity; order polarities to match uplift direction */
+function sortDriversForUplift(
+  drivers: DealMarketDriver[],
+  upliftNonNegative: boolean,
+): DealMarketDriver[] {
+  const byMag = (a: DealMarketDriver, b: DealMarketDriver) =>
+    Math.abs(b.impact ?? 0) - Math.abs(a.impact ?? 0);
+  const pos = drivers.filter((d) => d.type === "pos").sort(byMag);
+  const neg = drivers.filter((d) => d.type === "neg").sort(byMag);
+  return upliftNonNegative ? [...pos, ...neg] : [...neg, ...pos];
+}
+
+/** Mix ↑ / + for positives, − for negatives — reads analytical, not decorative */
+function driverPrefix(posIndex: number, type: "pos" | "neg"): string {
+  if (type === "neg") return "− ";
+  return posIndex % 2 === 0 ? "↑ " : "+ ";
 }
 
 export default function DealTerminal({
@@ -70,6 +83,7 @@ export default function DealTerminal({
   const [signalDetailOpen, setSignalDetailOpen] = useState(false);
   const { deal } = data;
   const m = deal.market;
+  const primaryAction = deal.actions?.[0];
   const up = m.uplift >= 0;
   const verb = tldrDecisionVerb(deal.decision);
   const upliftStr = `${up ? "+" : "−"}${Math.abs(m.uplift).toFixed(1)}%`;
@@ -83,7 +97,33 @@ export default function DealTerminal({
       ? scenarioMarkerPct(scen.bear, scen.base, scen.bull)
       : 50;
 
-  const driversOrdered = useMemo(() => sortDriversForDisplay(m.drivers), [m.drivers]);
+  const driversOrdered = useMemo(
+    () => sortDriversForUplift(m.drivers, m.uplift >= 0),
+    [m.drivers, m.uplift],
+  );
+
+  const signalLines = useMemo(() => {
+    let posRank = 0;
+    return driversOrdered.map((row, i) => {
+      const prefix = driverPrefix(
+        row.type === "pos" ? posRank++ : 0,
+        row.type,
+      );
+      return (
+        <div
+          key={i}
+          className={
+            row.type === "pos"
+              ? "text-deal-text"
+              : "text-deal-text/65"
+          }
+        >
+          {prefix}
+          {row.text}
+        </div>
+      );
+    });
+  }, [driversOrdered]);
 
   return (
     <section
@@ -101,64 +141,39 @@ export default function DealTerminal({
         ) : null}
       </p>
 
-      {/* Labels: ignorable — numbers do the trust work */}
+      {/* Neutral numerics — meaning from ±, →, and drivers (not retail green/red) */}
       <div className="mt-8 space-y-5 md:mt-10 md:space-y-6">
-        <div className="flex items-baseline justify-between gap-4">
-          <span className="text-3xl font-medium tabular-nums tracking-tight text-deal-text/70">
-            {deal.baseIRR.toFixed(1)}%
+        <p className="text-3xl font-medium tabular-nums tracking-tight text-deal-text/50">
+          {deal.baseIRR.toFixed(1)}%
+        </p>
+        <p className="text-3xl font-medium tabular-nums tracking-tight text-deal-text/75">
+          {upliftStr}
+        </p>
+        <p className="inline-flex items-baseline gap-0.5 text-3xl font-semibold tabular-nums tracking-tight text-deal-text">
+          <span className="text-deal-muted/55" aria-hidden>
+            →
           </span>
-          <span className="max-w-[6.5rem] shrink-0 text-right text-[10px] leading-tight tracking-tighter text-deal-muted/40">
-            base
-          </span>
-        </div>
-        <div className="flex items-baseline justify-between gap-4">
-          <span
-            className={`text-3xl font-bold tabular-nums tracking-tight ${
-              up ? "text-deal-green" : "text-deal-red"
-            }`}
-          >
-            {upliftStr}
-          </span>
-          <span className="max-w-[6.5rem] shrink-0 text-right text-[10px] leading-tight tracking-tighter text-deal-muted/35">
-            market impact
-          </span>
-        </div>
-        <div className="flex items-baseline justify-between gap-4">
-          <span
-            className={`inline-flex items-baseline gap-0.5 text-3xl font-semibold tabular-nums tracking-tight ${
-              up ? "text-deal-green" : "text-deal-red"
-            }`}
-          >
-            <span className="text-deal-muted/70" aria-hidden>
-              →
-            </span>
-            {m.adjustedIRR.toFixed(1)}%
-          </span>
-          <span className="max-w-[6.5rem] shrink-0 text-right text-[10px] leading-tight tracking-tighter text-deal-muted/40">
-            adjusted
-          </span>
-        </div>
+          {m.adjustedIRR.toFixed(1)}%
+        </p>
       </div>
 
-      {/* Justifies the uplift — terminal density, not doc spacing */}
-      <div className="mt-10 space-y-1.5 text-[13px] font-semibold leading-snug md:mt-12">
-        <p className="mb-1 text-[10px] font-medium tracking-tighter text-deal-muted/55">
-          Market signals:
-        </p>
-        {driversOrdered.map((row, i) => (
-          <div
-            key={i}
-            className={row.type === "pos" ? "text-deal-green" : "text-deal-red"}
-          >
-            {row.type === "pos" ? "↑ " : "↓ "}
-            {row.text}
-          </div>
-        ))}
+      <span className="sr-only">Market signals</span>
+      <div className="mt-10 space-y-1 text-[13px] font-semibold leading-tight md:mt-12">
+        {signalLines}
       </div>
 
       <p className="mt-5 text-[11px] tabular-nums text-deal-muted/45 md:mt-6">
         Confidence: {m.confidence}%
       </p>
+
+      {primaryAction ? (
+        <div className="mt-3 space-y-1">
+          <div className="text-sm text-deal-text">→ {primaryAction.text}</div>
+          <div className="text-xs tabular-nums text-deal-muted/60">
+            +{primaryAction.impact.toFixed(1)}% IRR · {label(primaryAction.confidence)}
+          </div>
+        </div>
+      ) : null}
 
       <div className="mt-8 md:mt-10">
         <div className={verdictClasses(deal.decision)}>→ {verb}</div>

@@ -1,4 +1,5 @@
 import { unauthorizedIfCronOrInternalMismatch } from "@/lib/internalApiAuth";
+import { generateActions } from "@/lib/actions";
 import { marketPayloadFromEngine } from "@/lib/deals/dealDetailResponse";
 import { computeDealSensitivity } from "@/lib/deals/sensitivity";
 import { findSectorForDeal } from "@/lib/deals/signalImpact";
@@ -67,10 +68,13 @@ export async function GET(request: Request, context: RouteContext) {
       : null,
   };
 
+  const actions = generateActions({ market });
+
   return Response.json({
     deal: {
       ...serializeDeal(deal),
       market,
+      actions,
     },
     matchError: null,
   });

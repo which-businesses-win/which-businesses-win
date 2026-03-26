@@ -40,6 +40,18 @@ export type DealDetailMarket = DealMarketCore & {
   riskNote?: string | null;
 };
 
+/** Operator layer — “what would I change?” (GET /api/deals/:id) */
+export type DealActionType = "planning" | "design" | "phasing" | "cost";
+
+export type DealAction = {
+  text: string;
+  /** Expected IRR delta from the move (percentage points) */
+  impact: number;
+  /** 0–1 */
+  confidence: number;
+  type?: DealActionType;
+};
+
 /** Bull / base / bear IRR from pillar scenario model (anchored to deal base IRR). */
 export type DealSensitivitySummary = {
   bullIRR: number;

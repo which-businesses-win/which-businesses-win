@@ -1,4 +1,4 @@
-import type { DealDetailMarket } from "@/lib/deals/dealDetailResponse";
+import type { DealAction, DealDetailMarket } from "@/lib/deals/dealDetailResponse";
 
 /** Payload for DealTerminal — matches GET /api/deals/:id `deal` when `market` is present */
 export type DealTerminalModel = {
@@ -11,5 +11,7 @@ export type DealTerminalModel = {
     planningRisk: string;
     decision: string;
     market: DealDetailMarket;
+    /** Operator layer — typically one item */
+    actions?: DealAction[];
   };
 };

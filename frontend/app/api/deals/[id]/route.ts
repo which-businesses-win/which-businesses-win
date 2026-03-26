@@ -1,5 +1,6 @@
 import { unauthorizedIfCronOrInternalMismatch } from "@/lib/internalApiAuth";
 import { marketPayloadFromEngine } from "@/lib/deals/dealDetailResponse";
+import { computeDealSensitivity } from "@/lib/deals/sensitivity";
 import { findSectorForDeal } from "@/lib/deals/signalImpact";
 import { applyMarketToDeal } from "@/lib/marketImpact";
 import { prisma } from "@/lib/prisma";
@@ -50,7 +51,21 @@ export async function GET(request: Request, context: RouteContext) {
     },
     sector,
   );
-  const market = marketPayloadFromEngine(sector, marketEngine);
+  const baseMarket = marketPayloadFromEngine(sector, marketEngine);
+  const sens = computeDealSensitivity(deal.baseIRR, sector);
+  const baseScenario = sens.scenarios.find((x) => x.name === "Base Case");
+  const baseIrr = baseScenario?.irr ?? sens.bullIRR;
+  const market = {
+    ...baseMarket,
+    scenarios: {
+      bull: sens.bullIRR,
+      base: baseIrr,
+      bear: sens.bearIRR,
+    },
+    riskNote: sens.highVolatility
+      ? "Moderate sensitivity to market conditions"
+      : null,
+  };
 
   return Response.json({
     deal: {

@@ -7,7 +7,7 @@ type Props = {
 
 export function DriverList({ items, className = "" }: Props) {
   return (
-    <div className={`space-y-1 text-sm ${className}`}>
+    <div className={`space-y-1 text-sm font-semibold ${className}`}>
       {items.map((item, i) => (
         <div
           key={i}

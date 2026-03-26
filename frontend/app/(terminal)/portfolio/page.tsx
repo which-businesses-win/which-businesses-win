@@ -84,11 +84,15 @@ export default function PortfolioPage() {
       .slice(0, 8);
   }, [data?.deals]);
 
+  const topSector = sectorEntries[0];
+  const highSectorExposure =
+    topSector != null && topSector[1] >= 0.35;
+
   return (
     <div className="mx-auto max-w-2xl">
       <TerminalScreenTitle
-        title="Portfolio intelligence"
-        kicker="Exposure · risk · allocation"
+        title="Portfolio positioning"
+        kicker="Exposure · risk"
       />
 
       {loading ? (
@@ -101,8 +105,18 @@ export default function PortfolioPage() {
             value={`${m.adjustedIRR.toFixed(1)}%`}
             label="Portfolio IRR (market-adjusted)"
             delta={deltaNode}
+            deltaTone={delta >= 0 ? "positive" : "negative"}
             className="mb-6"
           />
+
+          <p className="mb-8 text-sm font-medium text-deal-muted">
+            Market conditions adding{" "}
+            <span className={delta >= 0 ? "text-deal-green" : "text-deal-red"}>
+              {delta >= 0 ? "+" : "−"}
+              {Math.abs(delta).toFixed(1)}pp
+            </span>{" "}
+            vs base book
+          </p>
 
           <div className="mb-10 space-y-2 border-b border-deal-border pb-8 text-sm text-deal-text">
             <p className="tabular-nums">
@@ -113,13 +127,6 @@ export default function PortfolioPage() {
               <span className="text-deal-muted">Total GDV </span>
               <span className="font-semibold">{formatGdvM(m.totalGDV)}</span>
             </p>
-            <p className="tabular-nums text-deal-muted">
-              Signal lift on capital{" "}
-              <span className={delta >= 0 ? "text-deal-green" : "text-deal-red"}>
-                {delta >= 0 ? "+" : "−"}
-                {Math.abs(delta).toFixed(1)}pp
-              </span>
-            </p>
             <p className="text-xs text-deal-muted">
               Concentration risk score: {m.riskScore}/100
             </p>
@@ -128,6 +135,12 @@ export default function PortfolioPage() {
           <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-deal-muted">
             Sector exposure
           </h2>
+          {highSectorExposure ? (
+            <RiskFlag
+              text={`High exposure to ${topSector[0]}`}
+              className="mb-4"
+            />
+          ) : null}
           <div className="mb-10">
             {sectorEntries.length === 0 ? (
               <p className="text-sm text-deal-muted">No sector split.</p>

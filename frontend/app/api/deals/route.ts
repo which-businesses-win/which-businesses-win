@@ -11,15 +11,9 @@ import {
   parseSignalSnapshot,
   type SignalSnapshotInput,
 } from "@/lib/moatValidation";
-import {
-  calculateDealSignalImpact,
-  findSectorForDeal,
-} from "@/lib/deals/signalImpact";
-import {
-  applyMarketToDeal,
-  marketAwareRecommendation,
-  marketImpactHeadline,
-} from "@/lib/marketImpact";
+import { findSectorForDeal } from "@/lib/deals/signalImpact";
+import { marketPayloadFromEngine } from "@/lib/deals/dealDetailResponse";
+import { applyMarketToDeal, marketAwareRecommendation } from "@/lib/marketImpact";
 import { prisma } from "@/lib/prisma";
 import { recomputeSectorsFromDb } from "@/lib/signals/recompute";
 
@@ -41,6 +35,7 @@ export async function GET(request: Request) {
       location: true,
       sector: true,
       baseIRR: true,
+      stressedIRR: true,
     },
   });
 
@@ -55,20 +50,24 @@ export async function GET(request: Request) {
         location: d.location,
         sector: d.sector,
         baseIRR: d.baseIRR,
-        adjustedIRR: d.baseIRR,
-        irrAdjustment: 0,
+        market: null,
       };
     }
-    const impact = calculateDealSignalImpact(sector, d.location);
-    const irrAdjustment = impact.irrAdjustment;
+    const engine = applyMarketToDeal(
+      {
+        baseIRR: d.baseIRR,
+        stressedIRR: d.stressedIRR,
+        location: d.location,
+      },
+      sector,
+    );
     return {
       id: d.id,
       name: d.name ?? d.location,
       location: d.location,
       sector: d.sector,
       baseIRR: d.baseIRR,
-      adjustedIRR: d.baseIRR + irrAdjustment,
-      irrAdjustment,
+      market: marketPayloadFromEngine(sector, engine),
     };
   });
 
@@ -191,7 +190,7 @@ export async function POST(request: Request) {
   const marketPayload =
     sector &&
     (() => {
-      const market = applyMarketToDeal(
+      const engine = applyMarketToDeal(
         {
           baseIRR: deal.baseIRR,
           stressedIRR: deal.stressedIRR,
@@ -199,29 +198,13 @@ export async function POST(request: Request) {
         },
         sector,
       );
-      const sectorDisplayName = sector.displayTitle ?? sector.name;
       return {
-        marketContext: {
-          sectorLine: `${market.sectorShort} — ${market.sectorLabel} (${market.sectorScore})`,
-          geoLine: `${market.cityLabel ?? "UK-wide"} — ${market.geoLabel} (${Math.round(market.geoScore)})`,
-        },
-        marketImpact: {
-          adjustedIRR: market.adjustedIRR,
-          irrAdjustment: market.irrAdjustment,
-          sectorScore: market.sectorScore,
-          geoScore: market.geoScore,
-          impactScore: market.impactScore,
-          sectorLabel: market.sectorLabel,
-          geoLabel: market.geoLabel,
-          sectorShort: market.sectorShort,
-          cityLabel: market.cityLabel,
-          headline: marketImpactHeadline(market, sectorDisplayName),
-        },
+        market: marketPayloadFromEngine(sector, engine),
         marketRecommendation: marketAwareRecommendation(
           deal.decision,
-          market.irrAdjustment,
-          market.sectorShort,
-          market.cityLabel,
+          engine.irrAdjustment,
+          engine.sectorShort,
+          engine.cityLabel,
         ),
       };
     })();
@@ -247,8 +230,7 @@ export async function POST(request: Request) {
           }
         : null,
       ...(marketPayload ?? {
-        marketContext: null,
-        marketImpact: null,
+        market: null,
         marketRecommendation: null,
       }),
     },

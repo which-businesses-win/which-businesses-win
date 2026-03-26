@@ -6,16 +6,16 @@ type Props = {
 };
 
 function rowClass(tone: Row["tone"]) {
-  if (tone === "bull") return "text-deal-green";
-  if (tone === "bear") return "text-deal-red";
-  return "text-deal-text";
+  if (tone === "bull") return "text-deal-green font-semibold";
+  if (tone === "bear") return "text-deal-red font-semibold";
+  return "text-deal-text font-medium";
 }
 
 export function ScenarioBlock({ rows, className = "" }: Props) {
   return (
-    <div className={`space-y-1 text-sm ${className}`}>
+    <div className={`space-y-1 text-sm tabular-nums ${className}`}>
       {rows.map((r, i) => (
-        <div key={i} className={`tabular-nums ${rowClass(r.tone)}`}>
+        <div key={i} className={rowClass(r.tone)}>
           {r.value} — {r.label}
         </div>
       ))}

@@ -67,7 +67,7 @@ export default function BriefingPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <TerminalScreenTitle kicker="PlanSureAI" title="Daily Briefing" />
+      <TerminalScreenTitle kicker="Today" title="Briefing" />
       <p className="-mt-4 mb-6 text-xs font-medium tracking-wide text-deal-muted">
         What changed · what matters · what to do
       </p>

@@ -11,6 +11,7 @@ import {
   type DriverItem,
 } from "@/components/terminal-ui";
 import { opportunityTags } from "@/lib/sourcing/present";
+import type { DealMarketCore } from "@/lib/deals/dealDetailResponse";
 
 type BookSummary = {
   id: string;
@@ -18,8 +19,7 @@ type BookSummary = {
   location: string;
   sector: string;
   baseIRR: number;
-  adjustedIRR: number;
-  irrAdjustment: number;
+  market: DealMarketCore | null;
 };
 
 type ListResponse = {
@@ -33,10 +33,10 @@ type DetailResponse = {
   flags: string[];
 };
 
-function upliftFragment(irrAdjustment: number): string | null {
-  if (Math.abs(irrAdjustment) < 0.05) return null;
-  const sign = irrAdjustment >= 0 ? "+" : "−";
-  return `(${sign}${Math.abs(irrAdjustment).toFixed(1)}%)`;
+function upliftFragment(uplift: number): string | null {
+  if (Math.abs(uplift) < 0.05) return null;
+  const sign = uplift >= 0 ? "+" : "−";
+  return `(${sign}${Math.abs(uplift).toFixed(1)}%)`;
 }
 
 export default function DealsPage() {
@@ -105,7 +105,10 @@ export default function DealsPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <TerminalScreenTitle title="Deals" kicker="Book + pipeline" />
+      <TerminalScreenTitle
+        title="Deals"
+        kicker="Book · pipeline · opportunities"
+      />
 
       {loading ? (
         <p className="text-sm text-deal-muted">Loading…</p>
@@ -118,16 +121,21 @@ export default function DealsPage() {
           <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-deal-muted">
             Book
           </h2>
-          {book.map((d) => (
+          {book.map((d) => {
+            const mkt = d.market;
+            const adj = mkt?.adjustedIRR ?? d.baseIRR;
+            const up = mkt?.uplift ?? 0;
+            return (
             <DealCard
               key={d.id}
               name={d.name}
               subtitle={`${d.location} · ${d.sector}`}
-              irr={`Market-adjusted IRR: ${d.adjustedIRR.toFixed(1)}%`}
-              uplift={upliftFragment(d.irrAdjustment)}
+              irr={`Market-adjusted IRR: ${adj.toFixed(1)}%`}
+              uplift={upliftFragment(up)}
               href={`/deal/${encodeURIComponent(d.id)}`}
             />
-          ))}
+          );
+          })}
         </>
       ) : null}
 

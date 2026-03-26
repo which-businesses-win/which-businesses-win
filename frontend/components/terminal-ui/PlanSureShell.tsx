@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+/** v1 terminal — four primary surfaces (pipeline lives under Deals + /opportunities) */
 const NAV = [
   { href: "/market", label: "Market" },
-  { href: "/opportunities", label: "Opportunities" },
   { href: "/deals", label: "Deals" },
   { href: "/portfolio", label: "Portfolio" },
   { href: "/briefing", label: "Briefing" },
@@ -14,7 +14,12 @@ const NAV = [
 function navActive(pathname: string | null, href: string): boolean {
   if (!pathname) return false;
   if (pathname === href) return true;
-  if (href === "/deals" && pathname.startsWith("/deal")) return true;
+  if (
+    href === "/deals" &&
+    (pathname.startsWith("/deal") || pathname.startsWith("/opportunities"))
+  ) {
+    return true;
+  }
   return pathname.startsWith(`${href}/`);
 }
 
@@ -48,11 +53,14 @@ export function PlanSureShell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
-        <div className="mt-auto pt-10">
+        <div className="mt-auto space-y-2 pt-10 text-xs">
           <Link
-            href="/"
-            className="text-xs text-deal-muted hover:text-deal-text"
+            href="/opportunities"
+            className="block text-deal-muted hover:text-deal-text"
           >
+            Opportunities feed
+          </Link>
+          <Link href="/" className="block text-deal-muted hover:text-deal-text">
             ← Product home
           </Link>
         </div>

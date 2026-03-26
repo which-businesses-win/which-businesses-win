@@ -209,7 +209,6 @@ export default function Home() {
     avgConfidence: number;
   } | null>(null);
   const [sampleDealId, setSampleDealId] = useState<string | null>(null);
-  const [marketDetailOpen, setMarketDetailOpen] = useState(false);
 
   useEffect(() => {
     let c = false;
@@ -247,7 +246,6 @@ export default function Home() {
     setInvestmentMemo(null);
     setMemoError(null);
     setPdfLoading(false);
-    setMarketDetailOpen(false);
   }, [dealSignalPayload?.deal?.id]);
 
   useEffect(() => {
@@ -1119,8 +1117,6 @@ export default function Home() {
               market: dealSignalPayload.deal.market,
             },
           }}
-          detailOpen={marketDetailOpen}
-          onToggleDetail={() => setMarketDetailOpen((o) => !o)}
         />
       ) : dealSignalPayload?.matchError ? (
         <p style={{ opacity: 0.65, fontSize: 14, marginBottom: 20 }}>

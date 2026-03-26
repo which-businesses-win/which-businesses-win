@@ -101,10 +101,10 @@ function buildSummary(input: MemoGenerationInput): string {
     "sector and location momentum.";
   const align =
     irrAdj >= 0.5
-      ? "Strong alignment with current market conditions."
+      ? "Strong alignment."
       : irrAdj <= -0.5
-        ? "Market overlay is negative vs base — returns rely on execution and cost control."
-        : "Neutral vs headline market conditions.";
+        ? "Market headwind vs base — execution matters."
+        : "Neutral vs market.";
 
   let tail = "";
   if (portfolio && portfolio.sectorExposurePct > 40) {
@@ -301,10 +301,10 @@ function buildRecommendation(input: MemoGenerationInput): string {
 
   const align =
     si && si.irrAdjustment >= 0
-      ? "Strong alignment with current market signals and portfolio positioning."
+      ? "Strong alignment · signals supportive."
       : si && si.irrAdjustment < 0
-        ? "Market overlay is negative — returns rely on execution and margin protection."
-        : "Confirm base case before IC without relying on signal uplift.";
+        ? "Market headwind — protect margin."
+        : "Underwrite base case first.";
 
   const tail: string[] = [align];
   if (input.portfolio && input.portfolio.sectorExposurePct > 40) {

@@ -79,7 +79,7 @@ export default function MarketPage() {
           {sectors.map((s) => (
             <SignalRow
               key={s.id}
-              name={displayName(s)}
+              name={`${s.rank}. ${displayName(s)}`}
               score={s.score}
               delta={s.delta}
               label={sectorLabel(s)}

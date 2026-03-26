@@ -47,7 +47,6 @@ export default function DealDetailPage() {
   const [model, setModel] = useState<DealTerminalModel | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [detailOpen, setDetailOpen] = useState(false);
   const [signalsUpdatedAt, setSignalsUpdatedAt] = useState<string | null>(null);
 
   useEffect(() => {
@@ -114,8 +113,6 @@ export default function DealDetailPage() {
       ) : model ? (
         <DealTerminal
           data={model}
-          detailOpen={detailOpen}
-          onToggleDetail={() => setDetailOpen((v) => !v)}
           signalsUpdatedAt={signalsUpdatedAt}
           className="mb-6"
         />

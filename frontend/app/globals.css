@@ -4,15 +4,24 @@
   --background: #ffffff;
   --foreground: #171717;
 
-  /* Deal terminal — single source for Tailwind + arbitrary gradients */
-  --deal-bg: #000000;
-  --deal-text: #ededed;
-  --deal-green: #00ff85;
-  --deal-green-soft: #00c96b;
+  /* PlanSure / deal terminal — canonical tokens (lock these) */
+  --bg: #000000;
+  --text: #ededed;
+  --green: #00ff85;
+  --green-soft: #00c96b;
+  --red: #ff3b3b;
+  --yellow: #ffd84d;
+  --muted: #6b7280;
+
+  /* Aliases for existing components — same values */
+  --deal-bg: var(--bg);
+  --deal-text: var(--text);
+  --deal-green: var(--green);
+  --deal-green-soft: var(--green-soft);
   --deal-green-hi: #5cffb3;
-  --deal-red: #ff3b3b;
-  --deal-yellow: #ffd84d;
-  --deal-muted: #6b7280;
+  --deal-red: var(--red);
+  --deal-yellow: var(--yellow);
+  --deal-muted: var(--muted);
   --deal-border: #262626;
   --deal-orange: #ff9f43;
 }
@@ -20,6 +29,14 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  /* Optional semantic names — use with bg-ps-bg, text-ps-text, etc. */
+  --color-ps-bg: var(--bg);
+  --color-ps-text: var(--text);
+  --color-ps-green: var(--green);
+  --color-ps-green-soft: var(--green-soft);
+  --color-ps-red: var(--red);
+  --color-ps-yellow: var(--yellow);
+  --color-ps-muted: var(--muted);
   --color-deal-bg: var(--deal-bg);
   --color-deal-text: var(--deal-text);
   --color-deal-green: var(--deal-green);

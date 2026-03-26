@@ -65,11 +65,31 @@ export function marketImpactHeadline(
   return `${sign}${m.irrAdjustment.toFixed(1)}pp vs base · ${city} · ${sectorName}`;
 }
 
-/** Deal TL;DR middle line — scan-first */
+/** Deal TL;DR middle line — scan-first, minimal words */
 export function tldrAlignmentLine(irrAdjustment: number): string {
-  if (irrAdjustment >= 1) return "Strong alignment with current market conditions";
-  if (irrAdjustment <= -1) return "Market working against base case";
-  return "Neutral vs base case";
+  if (irrAdjustment >= 1) return "Strong alignment";
+  if (irrAdjustment <= -1) return "Market headwind";
+  return "Neutral vs market";
+}
+
+/** Deal hero — one institutional sentence (yellow accent line) */
+export function dealHeroAlignmentLine(irrAdjustment: number): string {
+  if (irrAdjustment >= 1) {
+    return "Strong alignment with current market conditions";
+  }
+  if (irrAdjustment <= -1) {
+    return "Market working against your base case";
+  }
+  return "Neutral vs market — confirm before IC";
+}
+
+/**
+ * Short clause after "Market Signal indicates …" — institutional, not AI-ish.
+ */
+export function marketSignalIndicatesPhrase(irrAdjustment: number): string {
+  if (irrAdjustment >= 1) return "a strong tailwind locally.";
+  if (irrAdjustment <= -1) return "a headwind locally.";
+  return "neutral conditions vs the market.";
 }
 
 export function tldrDecisionVerb(decisionRaw: string): string {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { PortfolioPayload } from "@/lib/portfolio/types";
 import {
@@ -9,6 +9,12 @@ import {
   ScenarioBlock,
   TerminalScreenTitle,
 } from "@/components/terminal-ui";
+
+function formatGdvM(millions: number): string {
+  if (!Number.isFinite(millions) || millions <= 0) return "—";
+  if (millions >= 100) return `£${millions.toFixed(0)}M`;
+  return `£${millions.toFixed(1)}M`;
+}
 
 function ExposureRow({ label, pct }: { label: string; pct: number }) {
   const w = Math.min(100, Math.round(pct * 100));
@@ -67,13 +73,23 @@ export default function PortfolioPage() {
     m == null ? undefined : (
       <>
         {delta >= 0 ? "↑" : "↓"} {delta >= 0 ? "+" : "−"}
-        {Math.abs(delta).toFixed(1)}% vs base
+        {Math.abs(delta).toFixed(1)}pp vs base
       </>
     );
 
+  const topDeals = useMemo(() => {
+    if (!data?.deals?.length) return [];
+    return [...data.deals]
+      .sort((a, b) => b.gdv - a.gdv)
+      .slice(0, 8);
+  }, [data?.deals]);
+
   return (
     <div className="mx-auto max-w-2xl">
-      <TerminalScreenTitle title="Portfolio positioning" kicker="Exposure + Market Signal" />
+      <TerminalScreenTitle
+        title="Portfolio intelligence"
+        kicker="Exposure · risk · allocation"
+      />
 
       {loading ? (
         <p className="text-sm text-deal-muted">Loading…</p>
@@ -83,20 +99,34 @@ export default function PortfolioPage() {
         <>
           <MetricHero
             value={`${m.adjustedIRR.toFixed(1)}%`}
-            label="Market-adjusted IRR (GDV-weighted)"
+            label="Portfolio IRR (market-adjusted)"
             delta={deltaNode}
-            className="mb-10"
+            className="mb-6"
           />
-          <p className="mb-10 text-sm text-deal-muted">
-            Base IRR {m.avgIRR.toFixed(1)}% · Market adding{" "}
-            <span className={delta >= 0 ? "text-deal-green" : "text-deal-red"}>
-              {delta >= 0 ? "+" : "−"}
-              {Math.abs(delta).toFixed(1)}%
-            </span>
-          </p>
+
+          <div className="mb-10 space-y-2 border-b border-deal-border pb-8 text-sm text-deal-text">
+            <p className="tabular-nums">
+              <span className="text-deal-muted">Base IRR </span>
+              <span className="font-semibold">{m.avgIRR.toFixed(1)}%</span>
+            </p>
+            <p className="tabular-nums">
+              <span className="text-deal-muted">Total GDV </span>
+              <span className="font-semibold">{formatGdvM(m.totalGDV)}</span>
+            </p>
+            <p className="tabular-nums text-deal-muted">
+              Signal lift on capital{" "}
+              <span className={delta >= 0 ? "text-deal-green" : "text-deal-red"}>
+                {delta >= 0 ? "+" : "−"}
+                {Math.abs(delta).toFixed(1)}pp
+              </span>
+            </p>
+            <p className="text-xs text-deal-muted">
+              Concentration risk score: {m.riskScore}/100
+            </p>
+          </div>
 
           <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-deal-muted">
-            Exposure
+            Sector exposure
           </h2>
           <div className="mb-10">
             {sectorEntries.length === 0 ? (
@@ -106,16 +136,10 @@ export default function PortfolioPage() {
                 <ExposureRow key={label} label={label} pct={pct} />
               ))
             )}
-            {sectorEntries[0] && sectorEntries[0][1] >= 0.4 ? (
-              <RiskFlag
-                text={`High exposure to ${sectorEntries[0][0]}`}
-                className="mt-2"
-              />
-            ) : null}
           </div>
 
           <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-deal-muted">
-            Geography
+            Geographic exposure
           </h2>
           <div className="mb-10">
             {locEntries.length === 0 ? (
@@ -129,14 +153,17 @@ export default function PortfolioPage() {
 
           {data.flags.length > 0 ? (
             <div className="mb-10 space-y-2">
+              <h2 className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-deal-muted">
+                Risk
+              </h2>
               {data.flags.map((f, i) => (
-                <RiskFlag key={i} text={`${f.message} (${f.detail})`} />
+                <RiskFlag key={i} text={`${f.message} — ${f.detail}`} />
               ))}
             </div>
           ) : null}
 
           <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-deal-muted">
-            Market sensitivity
+            Portfolio sensitivity
           </h2>
           <ScenarioBlock
             className="mb-3"
@@ -160,32 +187,79 @@ export default function PortfolioPage() {
           />
           {data.sensitivity.highDownside ? (
             <RiskFlag
-              text={`High downside: base − bear ${data.sensitivity.downsideVsBasePp.toFixed(1)}pp`}
+              text={`High downside exposure (−${data.sensitivity.downsideVsBasePp.toFixed(1)}pp base − bear)`}
               className="mb-10"
             />
-          ) : null}
+          ) : (
+            <p className="mb-10 text-xs text-deal-muted">
+              Downside spread base − bear:{" "}
+              {data.sensitivity.downsideVsBasePp.toFixed(1)}pp
+            </p>
+          )}
 
           <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-deal-muted">
-            Market Signal (mean adjustment)
+            Market conditions impact
           </h2>
-          <p className="mb-2 text-lg font-semibold tabular-nums text-deal-green">
+          <p className="mb-1 text-lg font-semibold tabular-nums text-deal-green">
             {data.marketImpact.avgIrrAdjustment >= 0 ? "+" : ""}
-            {data.marketImpact.avgIrrAdjustment.toFixed(1)}%
+            {data.marketImpact.avgIrrAdjustment.toFixed(1)}% IRR uplift (GDV-weighted)
           </p>
-          <ul className="mb-10 list-none space-y-1 p-0 text-sm text-deal-muted">
+          <p className="mb-2 text-xs text-deal-muted">Across deployed capital</p>
+          <ul className="mb-10 list-none space-y-1 p-0 text-sm text-deal-text">
             {data.marketImpact.lines.map((line, i) => (
               <li key={i}>→ {line}</li>
             ))}
           </ul>
 
           <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-deal-muted">
-            Suggested actions
+            Suggested rebalancing
           </h2>
-          <ul className="list-none space-y-2 p-0 text-sm text-deal-text">
+          <ul className="mb-10 list-none space-y-2 p-0 text-sm text-deal-text">
             {data.rebalancing.map((line, i) => (
               <li key={i}>→ {line}</li>
             ))}
           </ul>
+
+          {topDeals.length > 0 ? (
+            <>
+              <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-deal-muted">
+                Largest positions
+              </h2>
+              <div className="overflow-x-auto rounded-lg border border-deal-border bg-zinc-950/30">
+                <table className="w-full text-left text-xs text-deal-text">
+                  <thead>
+                    <tr className="border-b border-deal-border text-deal-muted">
+                      <th className="px-3 py-2 font-semibold">Deal</th>
+                      <th className="px-3 py-2 font-semibold">GDV</th>
+                      <th className="px-3 py-2 font-semibold">Base</th>
+                      <th className="px-3 py-2 font-semibold">Mkt-adj.</th>
+                      <th className="px-3 py-2 font-semibold">Δ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {topDeals.map((d) => (
+                      <tr key={d.id} className="border-b border-deal-border/60 last:border-0">
+                        <td className="max-w-[140px] truncate px-3 py-2 font-medium">
+                          {d.name}
+                        </td>
+                        <td className="px-3 py-2 tabular-nums">{formatGdvM(d.gdv)}</td>
+                        <td className="px-3 py-2 tabular-nums">{d.baseIRR.toFixed(1)}%</td>
+                        <td className="px-3 py-2 tabular-nums">{d.adjustedIRR.toFixed(1)}%</td>
+                        <td
+                          className={`px-3 py-2 tabular-nums ${
+                            d.uplift >= 0 ? "text-deal-green" : "text-deal-red"
+                          }`}
+                        >
+                          {d.uplift >= 0 ? "+" : ""}
+                          {d.uplift.toFixed(1)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : null}
         </>
       ) : null}
     </div>

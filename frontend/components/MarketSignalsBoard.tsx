@@ -61,7 +61,7 @@ export default function MarketSignalsBoard({
               lineHeight: 1.45,
             }}
           >
-            Real-time positioning across UK development sectors
+            Based on live planning, capital and demand signals across the UK
           </p>
           {credibilityLine ? (
             <p
@@ -169,27 +169,20 @@ export default function MarketSignalsBoard({
                     style={{
                       fontSize: 17,
                       fontWeight: 600,
-                      marginBottom: 6,
+                      marginBottom: 10,
                       fontVariantNumeric: "tabular-nums",
                       display: "flex",
+                      flexWrap: "wrap",
                       alignItems: "baseline",
-                      gap: 10,
+                      gap: "6px 12px",
                     }}
                   >
-                    <span>{row.score}</span>
+                    <span style={{ color: labelColor }}>
+                      {row.score} — {signal.label}
+                    </span>
                     <span style={{ opacity: 0.85 }}>
                       {arrow} {text}
                     </span>
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 15,
-                      fontWeight: 600,
-                      marginBottom: 10,
-                      color: labelColor,
-                    }}
-                  >
-                    {signal.label}
                   </div>
                   <div style={{ fontSize: 14, lineHeight: 1.5, opacity: 0.88 }}>
                     {row.driver}

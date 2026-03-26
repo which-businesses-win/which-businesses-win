@@ -10,7 +10,10 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 /**
- * One-screen daily briefing: market shift, sector deltas, top opportunities, risks, actions, alerts.
+ * Daily briefing — Bloomberg-style scan (~60s).
+ *
+ * Response: `date`, `topShift`, `sectorMoves[]`, `opportunities[]`, `risks[]`, `actions[]`,
+ * plus `alerts[]` (live triggers), `generatedAt` (ISO).
  */
 export async function GET(request: Request) {
   const denied = unauthorizedIfCronOrInternalMismatch(request);

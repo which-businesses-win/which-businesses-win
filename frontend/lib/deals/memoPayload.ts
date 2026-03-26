@@ -41,6 +41,8 @@ export type DealMemoFullPayload = {
   irrAdjustment: number;
   adjustedIRR: number;
   dateLabel: string;
+  /** Mapped sector row — PDF signal lines and drivers. */
+  sector: Sector | null;
 };
 
 /**
@@ -117,6 +119,7 @@ export async function buildDealMemoPayload(
       irrAdjustment: 0,
       adjustedIRR: deal.baseIRR,
       dateLabel,
+      sector: null,
     };
   }
 
@@ -156,5 +159,6 @@ export async function buildDealMemoPayload(
     irrAdjustment: signalImpact.irrAdjustment,
     adjustedIRR,
     dateLabel,
+    sector,
   };
 }

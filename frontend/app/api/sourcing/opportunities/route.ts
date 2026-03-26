@@ -9,6 +9,7 @@ export const runtime = "nodejs";
 
 /**
  * Ranked sourcing feed — live signals + portfolio fit.
+ * Scoring: `calculateOverallScore` in `lib/sourcing/score.ts` (IRR + fit + sector + inverse risk).
  */
 export async function GET(request: Request) {
   const denied = unauthorizedIfCronOrInternalMismatch(request);

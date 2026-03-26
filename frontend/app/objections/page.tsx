@@ -19,11 +19,11 @@ const ITEMS: Qa[] = [
   },
   {
     q: "Is this just another scoring tool?",
-    a: "No — the difference is we apply market conditions directly to deal outcomes. Most tools stop at insight; this translates it into IRR impact.",
+    a: "No — the difference is we apply market conditions directly to deal outcomes. Most tools stop at insight, this translates it into IRR impact.",
   },
   {
     q: "What happens if the signals are wrong?",
-    a: "Everything is transparent — you can see exactly what’s driving the output. It’s not a black box; it’s an additional layer of context.",
+    a: "Everything is transparent — you can see exactly what’s driving the output. It’s not a black box, it’s an additional layer of context.",
   },
   {
     q: "Who is this actually for?",

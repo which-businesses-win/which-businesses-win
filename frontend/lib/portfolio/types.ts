@@ -1,3 +1,17 @@
+/** Per-deal row for portfolio transparency (subset of book). */
+export type PortfolioDealSummary = {
+  id: string;
+  name: string;
+  sector: string;
+  location: string;
+  /** £ millions — same units as stored GDV */
+  gdv: number;
+  baseIRR: number;
+  adjustedIRR: number;
+  /** IRR uplift from market overlay (pp) — aligns with deal `market.uplift` */
+  uplift: number;
+};
+
 /** Aggregated portfolio view — multi-deal, signal-aware. */
 export type PortfolioMetrics = {
   /** Sum of deal GDV (£ millions). */
@@ -21,8 +35,9 @@ export type PortfolioFlag = {
 };
 
 export type PortfolioMarketImpact = {
-  /** Simple mean of per-deal IRR adjustments (% points). */
+  /** GDV-weighted mean IRR uplift (% points) across the book */
   avgIrrAdjustment: number;
+  /** Short driver lines for UI (no essays) */
   lines: string[];
 };
 
@@ -39,7 +54,10 @@ export type PortfolioPayload = {
   id: string;
   name: string;
   dealCount: number;
+  /** Book positions — same ordering as aggregation pass */
+  deals: PortfolioDealSummary[];
   metrics: PortfolioMetrics;
+  /** GDV-weighted mean uplift (pp) — headline “market lift” across capital */
   marketImpact: PortfolioMarketImpact;
   sensitivity: PortfolioSensitivitySummary;
   flags: PortfolioFlag[];

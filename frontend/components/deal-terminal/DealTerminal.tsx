@@ -1,5 +1,6 @@
 "use client";
 
+import { formatRelativeTime } from "@/lib/formatRelativeTime";
 import { tldrDecisionVerb } from "@/lib/marketImpact";
 import type { DealTerminalModel } from "./types";
 
@@ -7,6 +8,8 @@ type Props = {
   data: DealTerminalModel;
   detailOpen: boolean;
   onToggleDetail: () => void;
+  /** When signals were last recomputed (from `GET /api/market-meta`). */
+  signalsUpdatedAt?: string | null;
   className?: string;
 };
 
@@ -38,18 +41,13 @@ export default function DealTerminal({
   data,
   detailOpen,
   onToggleDetail,
+  signalsUpdatedAt = null,
   className = "",
 }: Props) {
-  const { deal, signalImpact: si, adjustedIRR, adjustedStressedIRR, alert } = data;
-  const irrDelta = adjustedIRR - deal.baseIRR;
-  const up = irrDelta >= 0;
+  const { deal } = data;
+  const m = deal.market;
+  const up = m.uplift >= 0;
   const verb = tldrDecisionVerb(deal.decision);
-  const locLabel = si.canonicalLocation ?? deal.location;
-
-  const driverRows =
-    si.driverTape?.length > 0
-      ? si.driverTape
-      : si.driverHints.map((t) => ({ text: t, sign: "+" as const }));
 
   return (
     <section
@@ -58,71 +56,63 @@ export default function DealTerminal({
       <h2 className="mb-1 text-[18px] font-bold leading-snug tracking-tight text-deal-text">
         {deal.name}
       </h2>
-      <p className="mb-6 text-[11px] font-medium tracking-wide text-deal-muted">
+      <p className="mb-2 text-[11px] font-medium tracking-wide text-deal-muted">
         {deal.location} · {formatSectorDisplay(deal.sector)}
       </p>
-
-      <p className="mb-4 text-base font-semibold tabular-nums text-deal-text">
-        Base IRR: {deal.baseIRR}%
+      <p className="mb-6 text-[10px] leading-snug text-deal-muted/90">
+        Based on live planning, capital and demand signals across the UK
+        {signalsUpdatedAt ? (
+          <span className="block pt-1 font-medium tabular-nums text-deal-muted">
+            Updated {formatRelativeTime(signalsUpdatedAt)}
+          </span>
+        ) : null}
       </p>
 
-      {/* Market Signal — integrated block */}
+      <div className="mb-6 space-y-0.5 font-semibold tabular-nums text-deal-text">
+        <p className="text-base">
+          {deal.baseIRR.toFixed(1)}% <span className="text-deal-muted">(base)</span>
+        </p>
+      </div>
+
       <div className="mb-6 rounded-r-lg border border-deal-border border-l-2 border-l-deal-green bg-zinc-950/40 px-4 py-4">
         <div className="flex flex-col gap-2">
-          <p className="order-2 text-[11px] font-bold uppercase tracking-[0.14em] text-deal-green md:order-1">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-deal-green">
             Market Signal
           </p>
           <p
-            className={`order-1 text-2xl font-bold tabular-nums md:order-2 md:text-xl ${
+            className={`text-2xl font-bold tabular-nums md:text-xl ${
               up ? "text-deal-green" : "text-deal-red"
             }`}
           >
             {up ? "+" : "−"}
-            {Math.abs(irrDelta).toFixed(1)}% IRR
-          </p>
-          <p className="order-3 text-sm leading-snug text-deal-text">
-            Market Signal indicates{" "}
-            <span
-              className={
-                up ? "font-semibold text-deal-green" : "font-semibold text-deal-red"
-              }
-            >
-              {si.geoLabel.toLowerCase()}
-            </span>{" "}
-            locally.
+            {Math.abs(m.uplift).toFixed(1)}%
           </p>
           <p
-            className={`order-4 text-lg font-extrabold tabular-nums md:text-xl ${
+            className={`text-lg font-extrabold tabular-nums md:text-xl ${
               up ? "text-deal-green" : "text-deal-red"
             }`}
           >
-            → Adjusted IRR: {adjustedIRR.toFixed(1)}%
+            → {m.adjustedIRR.toFixed(1)}%
+          </p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-deal-muted">
+            Market-adjusted IRR
+          </p>
+          <p className="text-[12px] font-medium leading-snug text-deal-muted">
+            Driven by current market conditions
           </p>
         </div>
       </div>
 
       <div className={verdictClasses(deal.decision)}>→ {verb}</div>
 
-      {alert === "upgraded" ? (
-        <p className="mb-3 text-xs font-bold text-deal-green">
-          Market Signal +2pp vs typical range
-        </p>
-      ) : null}
-      {alert === "risk" ? (
-        <p className="mb-3 text-xs font-bold text-deal-red">
-          Market Signal −2pp vs typical range
-        </p>
-      ) : null}
-
-      <div className="mb-5 border-t border-deal-border pt-5">
+      <div className="mb-5 mt-6 border-t border-deal-border pt-5">
         <p className="text-[13px] tabular-nums text-deal-muted">
-          Stressed IRR: {adjustedStressedIRR.toFixed(1)}%
+          Stressed IRR: {m.adjustedStressedIRR.toFixed(1)}%
         </p>
       </div>
 
       <p className="mb-5 text-[13px] leading-snug text-deal-muted">
-        Planning {deal.planningRisk} ·{" "}
-        {si.irrAdjustment >= 0 ? "Market Signal supportive" : "Market Signal a headwind"}
+        Planning {deal.planningRisk}
       </p>
 
       <button
@@ -138,18 +128,18 @@ export default function DealTerminal({
           <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.14em] text-deal-green">
             Market Signal
           </p>
-          <div className="mb-3 space-y-2 text-sm leading-snug">
+          <div className="mb-3 space-y-2 text-sm leading-snug tabular-nums">
             <p>
-              <span className="text-deal-muted">Sector: </span>
-              <span className="text-deal-text">
-                {formatSectorDisplay(deal.sector)} — {si.sectorLabel} ({si.sectorScore})
-              </span>
+              <span className="text-deal-muted">Market position score (sector): </span>
+              <span className="text-deal-text">{m.sectorScore}</span>
             </p>
             <p>
-              <span className="text-deal-muted">Location: </span>
-              <span className="text-deal-text">
-                {locLabel} — {si.geoLabel} ({Math.round(si.geoScore)})
-              </span>
+              <span className="text-deal-muted">Market position score (location): </span>
+              <span className="text-deal-text">{Math.round(m.geoScore)}</span>
+            </p>
+            <p>
+              <span className="text-deal-muted">Signal confidence: </span>
+              <span className="text-deal-text">{m.confidence}%</span>
             </p>
           </div>
 
@@ -157,12 +147,12 @@ export default function DealTerminal({
             Drivers
           </div>
           <ul className="mb-0 list-none space-y-1.5 p-0 text-sm font-semibold">
-            {driverRows.map((row, i) => (
+            {m.drivers.map((row, i) => (
               <li
                 key={i}
-                className={row.sign === "+" ? "text-deal-green" : "text-deal-red"}
+                className={row.type === "pos" ? "text-deal-green" : "text-deal-red"}
               >
-                {row.sign} {row.text}
+                {row.type === "pos" ? "+" : "−"} {row.text}
               </li>
             ))}
           </ul>

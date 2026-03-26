@@ -24,9 +24,17 @@ type MarketMetaPayload = {
 };
 
 type DealBridge = {
-  deal: { id: string; name: string; baseIRR: number };
-  adjustedIRR: number;
-  signalImpact: { irrAdjustment: number; confidence: number } | null;
+  deal: {
+    id: string;
+    name: string;
+    baseIRR: number;
+    market: {
+      adjustedIRR: number;
+      uplift: number;
+      confidence: number;
+    } | null;
+  };
+  matchError: string | null;
 };
 
 function StepBar({ step, total }: { step: number; total: number }) {
@@ -231,7 +239,9 @@ export default function OnboardPage() {
           }}
         >
           PlanSureAI
-          <span style={{ display: "block", opacity: 0.8 }}>Market Intelligence · Dev Finance</span>
+          <span style={{ display: "block", opacity: 0.8 }}>
+            Market Intelligence for Development Finance
+          </span>
         </span>
       </div>
 
@@ -248,7 +258,7 @@ export default function OnboardPage() {
               margin: "0 0 12px",
             }}
           >
-            REAL-TIME MARKET INTELLIGENCE
+            PLANSUREAI · UNDER 2 MINUTES
           </p>
           <h1
             style={{
@@ -259,11 +269,13 @@ export default function OnboardPage() {
               lineHeight: 1.15,
             }}
           >
-            Real-time intelligence for UK development deals
+            Understand where to deploy capital in UK development — in real time.
           </h1>
-          <p style={{ fontSize: 17, lineHeight: 1.5, opacity: 0.88, margin: "0 0 24px" }}>
-            See where capital is moving, how planning risk is shifting, and how it impacts your IRR
-            — instantly.
+          <p style={{ fontSize: 15, lineHeight: 1.5, opacity: 0.72, margin: "0 0 8px" }}>
+            Real-time market intelligence for UK development deals
+          </p>
+          <p style={{ fontSize: 16, lineHeight: 1.55, opacity: 0.88, margin: "0 0 24px" }}>
+            See → click → understand. No account required for this tour.
           </p>
           <button type="button" style={btnPrimary} onClick={() => setStep(2)}>
             View live market signals
@@ -276,22 +288,30 @@ export default function OnboardPage() {
           <h2 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 10px" }}>
             Live sectors
           </h2>
-          <p style={{ fontSize: 15, opacity: 0.75, lineHeight: 1.5, margin: "0 0 16px" }}>
-            Ranked by headline score. Open a row to see drivers, pillars, and geography.
+          <p style={{ fontSize: 15, opacity: 0.75, lineHeight: 1.5, margin: "0 0 8px" }}>
+            Ranked by headline score. Open any row for drivers, pillars, and geography.
           </p>
+          {credibility ? (
+            <p style={{ fontSize: 12, opacity: 0.55, margin: "0 0 16px", lineHeight: 1.45 }}>
+              {credibility}
+            </p>
+          ) : null}
           {spotlight.length > 0 ? (
-            <p style={{ fontSize: 13, opacity: 0.55, margin: "0 0 16px" }}>
-              {movers.length > 0 ? "Large WoW moves: " : "Top of the board: "}
+            <p style={{ fontSize: 13, opacity: 0.55, margin: "0 0 12px" }}>
+              {movers.length > 0 ? "Largest moves: " : "Top of the board: "}
               {spotlight.map((m) => m.name.split(" ")[0] ?? m.name).join(" · ")}
             </p>
           ) : null}
+          <p style={{ fontSize: 15, fontWeight: 600, margin: "0 0 10px", opacity: 0.92 }}>
+            See why Manchester BTR is outperforming
+          </p>
           <div style={{ marginBottom: 16 }}>
             <button
               type="button"
               style={{ ...btnGhost, marginRight: 10, marginBottom: 10 }}
               onClick={() => openSector(BTR_SLUG)}
             >
-              See why Manchester BTR is outperforming →
+              Open BTR intelligence →
             </button>
           </div>
           {sectorsLoading ? (
@@ -334,8 +354,8 @@ export default function OnboardPage() {
             This is what feeds deal-level IRR
           </h2>
           <p style={{ fontSize: 15, lineHeight: 1.55, opacity: 0.8, margin: "0 0 20px" }}>
-            Sector score, drivers, planning / capital / demand pillars, and city-level geo —
-            all of it rolls into the signal overlay on your investments.
+            Market position scores, drivers, planning / capital / demand pillars, and city-level geo
+            roll into the Market Signal on your deals — transparent drivers, not a black box.
           </p>
           <button
             type="button"
@@ -386,18 +406,21 @@ export default function OnboardPage() {
                 Base IRR: {bridge.deal.baseIRR.toFixed(1)}%
               </div>
               <div style={{ fontSize: 15, marginTop: 6, fontVariantNumeric: "tabular-nums" }}>
-                Market-adjusted IRR: {bridge.adjustedIRR.toFixed(1)}%
-                {bridge.signalImpact ? (
+                Market-adjusted IRR:{" "}
+                {bridge.deal.market
+                  ? `${bridge.deal.market.adjustedIRR.toFixed(1)}%`
+                  : "—"}
+                {bridge.deal.market ? (
                   <span style={{ color: "#4ade80", marginLeft: 8 }}>
                     (
-                    {bridge.signalImpact.irrAdjustment >= 0 ? "+" : ""}
-                    {bridge.signalImpact.irrAdjustment.toFixed(1)}% vs base)
+                    {bridge.deal.market.uplift >= 0 ? "+" : ""}
+                    {bridge.deal.market.uplift.toFixed(1)}% vs base)
                   </span>
                 ) : null}
               </div>
-              {bridge.signalImpact ? (
+              {bridge.deal.market ? (
                 <div style={{ fontSize: 13, opacity: 0.6, marginTop: 10 }}>
-                  Signal confidence: {bridge.signalImpact.confidence}%
+                  Signal confidence: {bridge.deal.market.confidence}%
                 </div>
               ) : null}
               <Link
@@ -574,14 +597,14 @@ export default function OnboardPage() {
       {step === 7 ? (
         <section>
           <h2 style={{ fontSize: 24, fontWeight: 700, margin: "0 0 10px" }}>
-            You&apos;re in
+            Your dashboard
           </h2>
           <p style={{ fontSize: 15, opacity: 0.72, lineHeight: 1.5, margin: "0 0 24px" }}>
-            Start with ranked opportunities, check the briefing, and attach your book on portfolio.
+            Ranked pipeline, portfolio exposure, and today&apos;s briefing — start anywhere.
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <Link
-              href="/deals"
+              href="/opportunities"
               style={{
                 padding: "14px 18px",
                 borderRadius: 10,
@@ -620,7 +643,20 @@ export default function OnboardPage() {
               Daily briefing
             </Link>
             <Link
-              href="/"
+              href="/market"
+              style={{
+                padding: "14px 18px",
+                borderRadius: 10,
+                border: "1px solid #3f3f46",
+                color: "#e4e4e7",
+                textDecoration: "none",
+                fontWeight: 600,
+              }}
+            >
+              Market signals (live)
+            </Link>
+            <Link
+              href="/deals"
               style={{
                 padding: "14px 18px",
                 borderRadius: 10,
@@ -630,7 +666,21 @@ export default function OnboardPage() {
                 fontWeight: 600,
               }}
             >
-              Full home (maps + site DD)
+              Book + pipeline (deals)
+            </Link>
+            <Link
+              href="/"
+              style={{
+                padding: "14px 18px",
+                borderRadius: 10,
+                border: "1px solid #3f3f46",
+                color: "#71717a",
+                textDecoration: "none",
+                fontWeight: 500,
+                fontSize: 14,
+              }}
+            >
+              Full product home (maps &amp; site DD)
             </Link>
           </div>
         </section>

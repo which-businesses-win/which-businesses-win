@@ -1,5 +1,6 @@
 import { calculateDealSignalImpact, findSectorForDeal } from "@/lib/deals/signalImpact";
 import type { PortfolioPayload } from "@/lib/portfolio/types";
+import { opportunityTags } from "@/lib/sourcing/present";
 import type { EnrichedDeal } from "@/lib/sourcing/types";
 import type { Sector } from "@/lib/sectors/types";
 
@@ -255,17 +256,22 @@ function buildAlerts(
 }
 
 function toBriefingOpportunities(rows: EnrichedDeal[]): BriefingOpportunity[] {
-  return rows.slice(0, 5).map((o) => ({
-    id: o.id,
-    name: o.name,
-    location: o.location,
-    sector: o.sector,
-    adjustedIRR: o.adjustedIRR,
-    irrAdjustment: o.irrAdjustment,
-    overallScore: o.overallScore,
-    headlineLabel: o.headlineLabel,
-    fitLine: `${o.headlineLabel} · ${fitTier(o.fitScore)}`,
-  }));
+  return rows.slice(0, 5).map((o) => {
+    const tags = opportunityTags(o);
+    const fitLine =
+      tags.length > 0 ? tags.join(" · ") : `${o.headlineLabel} · ${fitTier(o.fitScore)}`;
+    return {
+      id: o.id,
+      name: o.name,
+      location: o.location,
+      sector: o.sector,
+      adjustedIRR: o.adjustedIRR,
+      irrAdjustment: o.irrAdjustment,
+      overallScore: o.overallScore,
+      headlineLabel: o.headlineLabel,
+      fitLine,
+    };
+  });
 }
 
 export type BriefingBuildInput = {

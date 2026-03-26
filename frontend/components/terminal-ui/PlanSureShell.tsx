@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const NAV = [
   { href: "/market", label: "Market" },
+  { href: "/opportunities", label: "Opportunities" },
   { href: "/deals", label: "Deals" },
   { href: "/portfolio", label: "Portfolio" },
   { href: "/briefing", label: "Briefing" },
@@ -23,11 +24,11 @@ export function PlanSureShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen bg-deal-bg text-deal-text">
       <aside className="hidden w-56 shrink-0 flex-col border-r border-deal-border p-5 md:flex">
-        <Link
-          href="/market"
-          className="mb-6 text-lg font-semibold tracking-tight text-deal-text"
-        >
-          PlanSureAI
+        <Link href="/market" className="mb-6 block text-deal-text">
+          <span className="text-lg font-semibold tracking-tight">PlanSureAI</span>
+          <span className="mt-1 block text-[10px] font-medium leading-snug tracking-wide text-deal-muted">
+            Market Intelligence for Development Finance
+          </span>
         </Link>
         <nav className="space-y-3 text-sm">
           {NAV.map(({ href, label }) => {
@@ -58,13 +59,13 @@ export function PlanSureShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] md:pb-0">
-        <header className="sticky top-0 z-10 flex items-center border-b border-deal-border bg-deal-bg px-4 py-3 md:hidden">
-          <Link
-            href="/market"
-            className="text-base font-semibold tracking-tight text-deal-text"
-          >
+        <header className="sticky top-0 z-10 flex flex-col border-b border-deal-border bg-deal-bg px-4 py-3 md:hidden">
+          <Link href="/market" className="text-base font-semibold tracking-tight text-deal-text">
             PlanSureAI
           </Link>
+          <span className="text-[9px] font-medium tracking-wide text-deal-muted">
+            Market Intelligence for Development Finance
+          </span>
         </header>
         <main className="flex-1 p-4 md:p-6">{children}</main>
       </div>

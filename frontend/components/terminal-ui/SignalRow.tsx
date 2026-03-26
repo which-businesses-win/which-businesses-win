@@ -19,10 +19,11 @@ export function SignalRow({ name, score, delta, label, className = "" }: Props) 
       <div className="min-w-0 shrink text-deal-text">{name}</div>
       <div className="shrink-0 text-right">
         <div className="font-semibold tabular-nums text-deal-green">
-          {score}
-          {delta != null ? ` ${deltaStr}` : ""}
+          {score} — {label}
+          {delta != null ? (
+            <span className="ml-2 whitespace-nowrap opacity-90">{deltaStr}</span>
+          ) : null}
         </div>
-        <div className="text-xs text-deal-muted">{label}</div>
       </div>
     </div>
   );

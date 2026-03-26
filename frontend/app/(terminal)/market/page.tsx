@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import type { Sector } from "@/lib/sectors/types";
+import { getSignalLabel } from "@/lib/marketSignalsBoard";
 import { SignalRow, TerminalScreenTitle } from "@/components/terminal-ui";
 import { formatRelativeTime } from "@/lib/formatRelativeTime";
 
@@ -10,10 +11,7 @@ type MarketMeta = { lastRefreshedAt: string | null };
 
 function sectorLabel(s: Sector): string {
   if (s.rankContext) return s.rankContext;
-  if (s.score >= 78) return "Strong Tailwind";
-  if (s.score >= 68) return "Favourable";
-  if (s.score >= 55) return "Neutral bias";
-  return "Watch";
+  return getSignalLabel(s.score).label;
 }
 
 function displayName(s: Sector): string {
@@ -56,14 +54,17 @@ export default function MarketPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <TerminalScreenTitle title="Market signals — live" kicker="UK development finance" />
+      <TerminalScreenTitle title="Market Signals — Live" kicker="UK development finance" />
+      <p className="mb-2 text-base leading-snug text-deal-muted">
+        Based on live planning, capital and demand signals across the UK
+      </p>
       {meta?.lastRefreshedAt ? (
         <p className="mb-6 text-xs tabular-nums text-deal-muted">
           Updated {formatRelativeTime(meta.lastRefreshedAt)}
         </p>
       ) : (
         <p className="mb-6 text-xs text-deal-muted">
-          Live sector scores behind Market Signal
+          Signal refresh cadence: every few hours
         </p>
       )}
 

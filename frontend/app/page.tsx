@@ -14,9 +14,8 @@ import type { GeoCoords } from "@/lib/ingest";
 import {
   calculateDealSignalImpact,
   findSectorForDeal,
-  type DealSignalImpact,
 } from "@/lib/deals/signalImpact";
-import type { DealSensitivityResult } from "@/lib/deals/sensitivity";
+import type { DealDetailMarket } from "@/lib/deals/dealDetailResponse";
 import type { Insight } from "@/lib/insights";
 import type { DealImpact } from "@/lib/impact";
 import { sectorToBoardRow } from "@/lib/sectors/mappers";
@@ -107,21 +106,10 @@ type DealSignalApiPayload = {
     sector: string;
     planningRisk: string;
     decision: string;
+    market: DealDetailMarket | null;
   };
-  signalImpact: DealSignalImpact | null;
-  adjustedIRR: number;
-  adjustedStressedIRR: number;
-  alert: "upgraded" | "risk" | null;
-  sensitivity: DealSensitivityResult | null;
   matchError: string | null;
   message?: string;
-  marketImpact?: {
-    headline: string;
-    irrAdjustment: number;
-    sectorShort: string;
-    cityLabel: string | null;
-  } | null;
-  marketRecommendation?: string | null;
 };
 
 type InvestmentMemoApiResponse = {
@@ -155,7 +143,7 @@ function buildMemoPlainText(m: InvestmentMemoApiResponse["memo"]): string {
     "3. Market context (signals)",
     s.market,
     "",
-    "4. Financial impact",
+    "4. Financials",
     s.financials,
     "",
     "5. Key risks",
@@ -477,12 +465,12 @@ export default function Home() {
       <header style={{ marginBottom: 36 }}>
         <p
           style={{
-            fontSize: 12,
+            fontSize: 11,
             fontWeight: 600,
-            letterSpacing: "0.04em",
+            letterSpacing: "0.06em",
             color: "#a3a3a3",
             margin: "0 0 10px",
-            lineHeight: 1.35,
+            lineHeight: 1.4,
           }}
         >
           PlanSureAI — Market Intelligence for Development Finance
@@ -500,15 +488,15 @@ export default function Home() {
         </h1>
         <p
           style={{
-            fontSize: 17,
-            lineHeight: 1.5,
+            fontSize: 16,
+            lineHeight: 1.55,
             opacity: 0.88,
-            margin: "0 0 20px",
+            margin: "0 0 22px",
             maxWidth: 560,
           }}
         >
-          See where capital is moving, how planning risk is shifting, and how it impacts your IRR —
-          instantly.
+          See where capital is moving, how planning risk is shifting, and how it impacts your IRR
+          — instantly.
         </p>
         <div
           style={{
@@ -526,8 +514,8 @@ export default function Home() {
               fontVariantNumeric: "tabular-nums",
             }}
           >
-            Based on {marketMeta ? Math.max(47, marketMeta.liveSignalCount) : 47}+ live signals
-            across planning, capital and demand
+            Based on {Math.max(47, marketMeta?.liveSignalCount ?? 47)}+ live signals across
+            planning, capital and demand
           </p>
           <p style={{ fontSize: 14, lineHeight: 1.5, opacity: 0.78, margin: "0 0 4px" }}>
             Updated every 3 hours
@@ -546,17 +534,6 @@ export default function Home() {
             </p>
           ) : null}
         </div>
-        <p
-          style={{
-            fontSize: 13,
-            lineHeight: 1.45,
-            opacity: 0.62,
-            margin: "0 0 18px",
-            maxWidth: 520,
-          }}
-        >
-          Based on live planning, capital and demand signals across the UK
-        </p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
           <a
             href="#market-signals"
@@ -596,42 +573,27 @@ export default function Home() {
           style={{
             fontSize: 20,
             fontWeight: 700,
-            margin: "0 0 8px",
+            margin: "0 0 10px",
             letterSpacing: "-0.02em",
           }}
         >
-          Market Signals — Live
+          Where the market is moving right now
         </h2>
         <p
           style={{
-            fontSize: 13,
-            opacity: 0.55,
-            margin: "0 0 6px",
-            lineHeight: 1.45,
+            fontSize: 14,
+            lineHeight: 1.5,
+            opacity: 0.72,
+            margin: "0 0 16px",
+            maxWidth: 560,
           }}
         >
-          Real-time positioning across UK development sectors
-        </p>
-        {marketMeta ? (
-          <p
-            style={{
-              fontSize: 12,
-              opacity: 0.62,
-              margin: "0 0 6px",
-              fontVariantNumeric: "tabular-nums",
-            }}
-          >
-            Updated {formatRelativeTime(marketMeta.lastRefreshedAt)}
-          </p>
-        ) : null}
-        <p
-          style={{
-            fontSize: 12,
-            opacity: 0.48,
-            margin: "0 0 18px",
-          }}
-        >
-          Based on live signals
+          Based on live planning, capital and demand signals across the UK
+          {marketMeta?.lastRefreshedAt ? (
+            <span style={{ display: "block", marginTop: 6, fontVariantNumeric: "tabular-nums" }}>
+              Updated {formatRelativeTime(marketMeta.lastRefreshedAt)}
+            </span>
+          ) : null}
         </p>
         {sectorsLoading ? (
           <p style={{ opacity: 0.65, marginBottom: 24 }}>Loading market signals…</p>
@@ -727,9 +689,8 @@ export default function Home() {
           <div style={{ fontWeight: 700, marginBottom: 10 }}>
             Investment Memo — Manchester BTR Scheme
           </div>
-          <div style={{ opacity: 0.88, marginBottom: 6 }}>
-            Market-adjusted IRR: 19.7% · Signal confidence: 82%
-          </div>
+          <div style={{ opacity: 0.88, marginBottom: 4 }}>Market-adjusted IRR: 19.7%</div>
+          <div style={{ opacity: 0.88, marginBottom: 10 }}>Signal confidence: 82%</div>
           <div style={{ opacity: 0.55, marginBottom: 8 }}>Recommendation:</div>
           <div style={{ opacity: 0.9 }}>
             Proceed with acquisition, subject to planning validation.
@@ -1144,15 +1105,19 @@ export default function Home() {
         </section>
       ) : null}
 
-      {dealSignalPayload?.signalImpact ? (
+      {dealSignalPayload?.deal?.market ? (
         <DealTerminal
           data={{
-            deal: dealSignalPayload.deal,
-            signalImpact: dealSignalPayload.signalImpact,
-            adjustedIRR: dealSignalPayload.adjustedIRR,
-            adjustedStressedIRR: dealSignalPayload.adjustedStressedIRR,
-            alert: dealSignalPayload.alert,
-            sensitivity: dealSignalPayload.sensitivity,
+            deal: {
+              name: dealSignalPayload.deal.name,
+              location: dealSignalPayload.deal.location,
+              sector: dealSignalPayload.deal.sector,
+              baseIRR: dealSignalPayload.deal.baseIRR,
+              stressedIRR: dealSignalPayload.deal.stressedIRR,
+              planningRisk: dealSignalPayload.deal.planningRisk,
+              decision: dealSignalPayload.deal.decision,
+              market: dealSignalPayload.deal.market,
+            },
           }}
           detailOpen={marketDetailOpen}
           onToggleDetail={() => setMarketDetailOpen((o) => !o)}

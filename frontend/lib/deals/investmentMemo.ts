@@ -74,45 +74,64 @@ function recommendationVerb(
 
 function buildSummary(input: MemoGenerationInput): string {
   const { deal, signalImpact, adjustedIRR, portfolio, matchError } = input;
-  const name = deal.name || `${deal.location} — ${deal.sector}`;
-  const irrAdj = signalImpact?.irrAdjustment ?? 0;
-  const drivers =
-    signalImpact?.driverHints.slice(0, 2).join("; ") ||
-    "See deal thesis — limited live driver text.";
-  const pr = planningRiskTone(deal.planningRisk);
-  const prPhrase =
-    pr === "high"
-      ? "Elevated planning risk — diligence on consent path is critical."
-      : pr === "low"
-        ? "Planning risk appears contained vs typical UK schemes."
-        : "Moderate planning risk — standard validation steps apply.";
-
+  const place = deal.location.trim() || "UK";
   const sectorName = input.sector
     ? sectorHeadlineName(input.sector)
     : deal.sector;
-  const para1 = `${name}: ${sectorName} — ${deal.location.trim() || "UK"}.`;
+  const pr = planningRiskTone(deal.planningRisk);
+  const prShort =
+    pr === "high"
+      ? "Elevated planning risk — consent path needs explicit diligence."
+      : pr === "low"
+        ? "Planning risk appears contained vs typical UK schemes."
+        : "Moderate planning risk.";
 
-  const para2 = signalImpact
-    ? `Market-adjusted IRR ${adjustedIRR.toFixed(1)}% (${irrAdj >= 0 ? "+" : ""}${irrAdj.toFixed(1)}pp from live sector + location signals). ${drivers}.`
-    : `Base IRR ${deal.baseIRR.toFixed(1)}% — signal bridge unavailable (${matchError ?? "no sector match"}); figures exclude market overlay.`;
-
-  const para3 = `${prPhrase} Signal confidence on overlay: ${signalImpact ? `${signalImpact.confidence}%` : "n/a"}.`;
-
-  let para4 = "";
-  if (portfolio && portfolio.sectorExposurePct > 40) {
-    para4 = ` Book is ~${Math.round(portfolio.sectorExposurePct)}% ${portfolio.sectorLabel} by GDV — concentration is material.`;
-  } else if (portfolio && portfolio.sectorExposurePct < 12 && portfolio.totalGDV > 0) {
-    para4 = ` ${portfolio.sectorLabel} remains a thin sleeve vs total GDV — additive if strategy fits.`;
+  if (!signalImpact) {
+    const p2 = `Base IRR ${deal.baseIRR.toFixed(1)}% — no live signal overlay (${matchError?.replace(/_/g, " ") ?? "sector not mapped"}).`;
+    return [
+      `${sectorName} — ${place}.`,
+      p2,
+      `${prShort} Underwrite on base case until signals attach.`,
+    ].join("\n\n");
   }
 
-  return [para1, para2, para3 + para4].filter(Boolean).join("\n\n");
+  const irrAdj = signalImpact.irrAdjustment;
+  const drivers =
+    signalImpact.driverHints.slice(0, 2).join("; ") ||
+    "sector and location momentum.";
+  const align =
+    irrAdj >= 0.5
+      ? "Strong alignment with current market conditions."
+      : irrAdj <= -0.5
+        ? "Market overlay is negative vs base — returns rely on execution and cost control."
+        : "Neutral vs headline market conditions.";
+
+  let tail = "";
+  if (portfolio && portfolio.sectorExposurePct > 40) {
+    tail = ` Book ~${Math.round(portfolio.sectorExposurePct)}% ${portfolio.sectorLabel} by GDV — concentration is material.`;
+  } else if (
+    portfolio &&
+    portfolio.sectorExposurePct < 12 &&
+    portfolio.totalGDV > 0
+  ) {
+    tail = ` ${portfolio.sectorLabel} is a thin sleeve — additive if strategy fits.`;
+  }
+
+  return [
+    `High-conviction ${sectorName} opportunity — ${place}.`,
+    `Market-adjusted IRR ${adjustedIRR.toFixed(1)}% (${irrAdj >= 0 ? "+" : ""}${irrAdj.toFixed(1)}pp from signals), driven by ${drivers.toLowerCase()}.`,
+    `${prShort} ${align}${tail}`,
+  ].join("\n\n");
 }
 
 function buildOverview(input: MemoGenerationInput): string {
   const d = input.deal;
+  const sectorDisplay = input.sector
+    ? sectorHeadlineName(input.sector)
+    : d.sector;
   const lines = [
     `Location: ${d.location.trim() || "—"}`,
-    `Sector: ${d.sector}`,
+    `Sector: ${sectorDisplay}`,
     `GDV: ${fmtMoneyM(d.gdv)}`,
     "",
     `Base IRR: ${d.baseIRR.toFixed(1)}%`,
@@ -120,8 +139,8 @@ function buildOverview(input: MemoGenerationInput): string {
       ? `Market-adjusted IRR: ${input.adjustedIRR.toFixed(1)}%`
       : `Market-adjusted IRR: — (signals not applied)`,
     `Stressed IRR: ${input.adjustedStressedIRR.toFixed(1)}%`,
-    `Planning risk (recorded): ${d.planningRisk}`,
-    `Prior decision flag: ${d.decision}`,
+    `Planning risk: ${d.planningRisk}`,
+    `Decision flag: ${d.decision}`,
   ];
   return lines.join("\n");
 }
@@ -139,7 +158,12 @@ function buildMarket(input: MemoGenerationInput): string {
     ].join("\n");
   }
 
-  const place = si.canonicalLocation ?? "UK-wide";
+  const city =
+    si.canonicalLocation && si.canonicalLocation !== "UK"
+      ? si.canonicalLocation
+      : input.deal.location.trim() || "UK-wide";
+  const short = sector.shortCode ?? sectorHeadlineName(sector).split(/\s+/)[0] ?? sector.name;
+
   const drivers = [
     ...si.driverHints.map((t) => `+ ${t}`),
     ...sector.drivers.slice(0, 2).map((dr) =>
@@ -154,14 +178,16 @@ function buildMarket(input: MemoGenerationInput): string {
   });
 
   const head = [
-    `Sector (${sectorHeadlineName(sector)}): ${si.sectorLabel} (${Math.round(si.sectorScore)})`,
-    `Location (${place}): ${si.geoLabel} (${Math.round(si.geoScore)})`,
+    `Sector (${short}): ${si.sectorLabel} (${Math.round(si.sectorScore)})`,
+    `Location (${city}): ${si.geoLabel} (${Math.round(si.geoScore)})`,
     "",
     "Key drivers:",
     ...drivers,
     "",
     "Recent changes:",
-    ...(changeLines.length ? changeLines : ["No recent change events recorded for this sector."]),
+    ...(changeLines.length
+      ? changeLines
+      : ["No recent change events recorded for this sector."]),
   ];
   return head.join("\n");
 }
@@ -177,11 +203,11 @@ function buildFinancials(input: MemoGenerationInput): string {
   }
   const adj = si.irrAdjustment;
   const lines = [
-    `Market-conditions IRR uplift: ${adj >= 0 ? "+" : ""}${adj.toFixed(1)}pp`,
+    `Signal-driven IRR uplift: ${adj >= 0 ? "+" : ""}${adj.toFixed(1)}pp`,
     "",
     "Primary drivers:",
-    `→ Sector score ${Math.round(si.sectorScore)} (${si.sectorLabel})`,
-    `→ Location overlay ${Math.round(si.geoScore)} (${si.geoLabel})`,
+    `→ ${si.geoLabel} local conditions`,
+    `→ Sector momentum (${si.sectorLabel})`,
     "",
     `Signal confidence: ${si.confidence}%`,
   ];
@@ -248,11 +274,11 @@ function buildScenarios(input: MemoGenerationInput): string {
     return "Incomplete scenario set.";
   }
   return [
-    `Bull case: ${bull.irr.toFixed(1)}%`,
-    `Base case: ${base.irr.toFixed(1)}%`,
-    `Bear case: ${bear.irr.toFixed(1)}%`,
+    `Bull Case: ${bull.irr.toFixed(1)}%`,
+    `Base Case: ${base.irr.toFixed(1)}%`,
+    `Bear Case: ${bear.irr.toFixed(1)}%`,
     "",
-    "Downside is driven by planning friction and capital tightening when bear assumptions bind; bull assumes supportive pillars vs today.",
+    "Downside driven by planning friction and capital tightening when bear assumptions bind.",
   ].join("\n");
 }
 
@@ -263,27 +289,27 @@ function buildRecommendation(input: MemoGenerationInput): string {
 
   let lead =
     verb === "proceed"
-      ? "Proceed toward acquisition subject to planning validation, build pricing, and legal sign-off on title and consent."
+      ? "Proceed with acquisition, subject to planning validation and legal sign-off."
       : verb === "caution"
-        ? "Proceed only with explicit planning and funding mitigations — IC should set clear kill criteria."
-        : "Do not advance without revised underwriting or improved signal / planning clarity.";
+        ? "Proceed only with explicit planning and funding mitigations — set clear IC kill criteria."
+        : "Do not advance without revised underwriting or clearer signals.";
 
   if (verb === "proceed" && pr === "high") {
     lead =
-      "Proceed only after planning milestones are de-risked — elevated file risk vs typical book.";
+      "Proceed only after planning milestones are de-risked — file risk elevated vs typical book.";
   }
 
   const align =
     si && si.irrAdjustment >= 0
-      ? "Current market signals are supportive of headline returns vs neutral."
+      ? "Strong alignment with current market signals and portfolio positioning."
       : si && si.irrAdjustment < 0
-        ? "Market overlay is negative vs baseline — returns rely on idiosyncratic upside or cost discipline."
-        : "Reconcile base case without signal uplift before IC.";
+        ? "Market overlay is negative — returns rely on execution and margin protection."
+        : "Confirm base case before IC without relying on signal uplift.";
 
   const tail: string[] = [align];
   if (input.portfolio && input.portfolio.sectorExposurePct > 40) {
     tail.push(
-      `Limit further ${input.portfolio.sectorLabel} exposure beyond this ticket until sleeve is rebalanced.`,
+      `Consider limiting further ${input.portfolio.sectorLabel} exposure beyond this deal until the sleeve is rebalanced.`,
     );
   }
 

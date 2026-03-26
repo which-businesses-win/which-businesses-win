@@ -19,6 +19,7 @@ const quote = {
   opacity: 0.92,
 } as const;
 
+/** Live demo script — sophisticated capital / credit audience (e.g. Alex Blakeborough). */
 export default function PitchPage() {
   return (
     <main
@@ -58,17 +59,17 @@ export default function PitchPage() {
           marginBottom: 8,
         }}
       >
-        DEMO · SOPHISTICATED BUYER (E.G. CREDIT / CAPITAL ALLOCATION)
+        PLANSUREAI · LIVE DEMO (UNDER 2 MIN)
       </p>
       <h1 style={{ fontSize: 26, fontWeight: 700, margin: "0 0 8px", letterSpacing: "-0.02em" }}>
         Control the room
       </h1>
       <p style={{ fontSize: 14, opacity: 0.55, marginBottom: 28, lineHeight: 1.5 }}>
-        PlanSureAI — Market Intelligence for Development Finance. Under two minutes.
+        PlanSureAI — Market Intelligence for Development Finance
       </p>
 
       <section style={section}>
-        <h2 style={h2}>OPENING</h2>
+        <h2 style={h2}>OPENING (ANCHOR IT)</h2>
         <p style={quote}>
           &ldquo;Everything here is built around one idea — most development deals are analysed
           statically, but the market around them is constantly moving.&rdquo;
@@ -88,7 +89,7 @@ export default function PitchPage() {
       </section>
 
       <section style={section}>
-        <h2 style={h2}>STEP 2 — SHOW REASONING</h2>
+        <h2 style={h2}>STEP 2 — SHOW REASONING (BUILD TRUST)</h2>
         <p style={quote}>
           &ldquo;And this isn&apos;t just a score — you can see what&apos;s driving it: capital
           inflows, rental demand, and local planning conditions.&rdquo;
@@ -96,7 +97,7 @@ export default function PitchPage() {
       </section>
 
       <section style={section}>
-        <h2 style={h2}>STEP 3 — THE MOMENT</h2>
+        <h2 style={h2}>STEP 3 — THIS IS THE MOMENT</h2>
         <p style={quote}>
           &ldquo;Where it becomes useful is when we apply that directly to a deal.&rdquo;
         </p>
@@ -108,14 +109,17 @@ export default function PitchPage() {
       </section>
 
       <section style={section}>
-        <h2 style={h2}>STEP 4 — RISK (CREDIBILITY)</h2>
+        <h2 style={h2}>STEP 4 — SHOW YOU UNDERSTAND RISK</h2>
         <p style={quote}>
           &ldquo;But equally — if planning tightens, you&apos;re back down closer to 16%.&rdquo;
+        </p>
+        <p style={{ fontSize: 13, opacity: 0.45, margin: 0 }}>
+          This is what makes you credible.
         </p>
       </section>
 
       <section style={section}>
-        <h2 style={h2}>STEP 5 — OUTPUT</h2>
+        <h2 style={h2}>STEP 5 — SHOW OUTPUT (CLOSES THE LOOP)</h2>
         <p style={{ ...quote, marginBottom: 0 }}>
           &ldquo;And this generates a clean investment memo — which is effectively what gets shared
           internally or with capital.&rdquo;

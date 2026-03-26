@@ -6,6 +6,7 @@ import { computeDealSensitivity } from "@/lib/deals/sensitivity";
 import { normalizeLocationName } from "@/lib/signals/locationNormalize";
 import type { Sector } from "@/lib/sectors/types";
 import type {
+  PortfolioDealSummary,
   PortfolioFlag,
   PortfolioMarketImpact,
   PortfolioMetrics,
@@ -23,12 +24,16 @@ export type DealRow = {
   stressedIRR: number;
 };
 
-function weightedMean(
-  items: { value: number; weight: number }[],
+/** GDV-weighted IRR — same logic as `calculatePortfolioIRR` in product spec */
+export function calculatePortfolioIRR(
+  deals: { gdv: number; irr: number }[],
 ): number {
-  const tw = items.reduce((s, x) => s + x.weight, 0);
-  if (tw <= 0) return 0;
-  return items.reduce((acc, x) => acc + x.value * (x.weight / tw), 0);
+  const total = deals.reduce((s, d) => s + Math.max(0, d.gdv), 0);
+  if (total <= 0) return 0;
+  return deals.reduce((acc, d) => {
+    const w = Math.max(0, d.gdv) / total;
+    return acc + d.irr * w;
+  }, 0);
 }
 
 function sectorLabel(sector: Sector | undefined, fallback: string): string {
@@ -59,6 +64,7 @@ export function buildPortfolioPayload(
       id: "all",
       name: "All deals",
       dealCount: 0,
+      deals: [],
       metrics: {
         totalGDV: 0,
         avgIRR: 0,
@@ -95,8 +101,6 @@ export function buildPortfolioPayload(
     irrAdjustment: number;
   }[] = [];
 
-  const irrAdjustments: number[] = [];
-
   for (const d of deals) {
     const sector = findSectorForDeal(d.sector, sectors);
     const sl = sectorLabel(sector, d.sector);
@@ -108,7 +112,6 @@ export function buildPortfolioPayload(
       const impact = calculateDealSignalImpact(sector, d.location);
       irrAdjustment = impact.irrAdjustment;
       adjustedIRR = d.baseIRR + irrAdjustment;
-      irrAdjustments.push(irrAdjustment);
     }
 
     perDeal.push({
@@ -122,17 +125,12 @@ export function buildPortfolioPayload(
     });
   }
 
-  const weights = perDeal.map((p) => ({
-    value: p.baseIRR,
-    weight: p.gdv,
-  }));
-  const weightsAdj = perDeal.map((p) => ({
-    value: p.adjustedIRR,
-    weight: p.gdv,
-  }));
-
-  const avgIRR = weightedMean(weights);
-  const adjustedIRR = weightedMean(weightsAdj);
+  const avgIRR = calculatePortfolioIRR(
+    perDeal.map((p) => ({ gdv: p.gdv, irr: p.baseIRR })),
+  );
+  const adjustedIRR = calculatePortfolioIRR(
+    perDeal.map((p) => ({ gdv: p.gdv, irr: p.adjustedIRR })),
+  );
 
   const exposureBySector: Record<string, number> = {};
   const exposureByLocation: Record<string, number> = {};
@@ -160,8 +158,8 @@ export function buildPortfolioPayload(
   };
 
   const avgIrrAdjustment =
-    irrAdjustments.length > 0
-      ? irrAdjustments.reduce((a, b) => a + b, 0) / irrAdjustments.length
+    totalGDV > 0
+      ? perDeal.reduce((s, p) => s + p.irrAdjustment * p.gdv, 0) / totalGDV
       : 0;
 
   const lines: string[] = [];
@@ -171,17 +169,17 @@ export function buildPortfolioPayload(
   for (const [label] of topSectors) {
     const dealInSector = perDeal.find((p) => p.sectorLabel === label);
     if (dealInSector && dealInSector.irrAdjustment > 0.2) {
-      lines.push(`Strong ${label} positioning vs neutral market (signal overlay).`);
+      lines.push(`Strong ${label} performance vs neutral`);
     }
   }
   const topLocs = Object.entries(exposureByLocation)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 1);
   if (topLocs[0] && topLocs[0][1] > 0.25) {
-    lines.push(`Geographic tilt toward ${topLocs[0][0]} — watch local signal drift.`);
+    lines.push(`${topLocs[0][0]} outperformance in geo layer`);
   }
   if (lines.length === 0) {
-    lines.push("Market overlay blended across deals — see per-deal breakdown.");
+    lines.push("Signal overlay blended across the book");
   }
 
   const marketImpact: PortfolioMarketImpact = {
@@ -223,7 +221,7 @@ export function buildPortfolioPayload(
     if (share > 0.5) {
       flags.push({
         type: "sector_concentration",
-        message: `High exposure to ${label}`,
+        message: `Overexposed to ${label}`,
         detail: `${Math.round(share * 100)}% of GDV`,
       });
     }
@@ -232,7 +230,7 @@ export function buildPortfolioPayload(
     if (share > 0.4) {
       flags.push({
         type: "geo_concentration",
-        message: `Geographic concentration in ${loc}`,
+        message: `Heavy reliance on ${loc}`,
         detail: `${Math.round(share * 100)}% of GDV`,
       });
     }
@@ -244,10 +242,25 @@ export function buildPortfolioPayload(
     sectors,
   );
 
+  const dealSummaries: PortfolioDealSummary[] = deals.map((d) => {
+    const row = perDeal.find((p) => p.id === d.id)!;
+    return {
+      id: d.id,
+      name: d.name?.trim() || d.location,
+      sector: d.sector,
+      location: d.location,
+      gdv: row.gdv,
+      baseIRR: row.baseIRR,
+      adjustedIRR: row.adjustedIRR,
+      uplift: row.irrAdjustment,
+    };
+  });
+
   return {
     id: "all",
     name: "All deals",
     dealCount: deals.length,
+    deals: dealSummaries,
     metrics,
     marketImpact,
     sensitivity,

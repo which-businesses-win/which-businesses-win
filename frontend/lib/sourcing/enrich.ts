@@ -89,20 +89,25 @@ export function buildWhyLines(
 ): string[] {
   const lines: string[] = [];
   const exp = exposureBySector[enriched.sectorLabel] ?? 0;
-  const canon = enriched.location;
+  const place = enriched.location.trim() || "this market";
   lines.push(
-    `${enriched.geoLabel} geo read in ${canon} — local score ${Math.round(enriched.geoScore)}.`,
+    `Located in ${enriched.geoLabel.toLowerCase()} ${place} — geo score ${Math.round(enriched.geoScore)}.`,
   );
   lines.push(
-    `${enriched.sectorLabel} sector: ${enriched.headlineLabel} (headline ${enriched.sectorScore}).`,
+    `${enriched.sectorLabel}: ${enriched.headlineLabel} (sector ${enriched.sectorScore}).`,
   );
   if (exp === 0) {
-    lines.push("Portfolio is underweight this sleeve — strategic fit boosted.");
+    lines.push("Portfolio is underweight this sleeve — fit boosted.");
   } else if (exp > 0.35) {
-    lines.push("Portfolio already has meaningful exposure here — fit discounted.");
+    lines.push("Book already has exposure here — fit discounted.");
   }
-  if (sector.drivers[0]) {
-    lines.push(`Signal driver: ${sector.drivers[0].title}.`);
+  const cap = sector.drivers.find((d) =>
+    /capital|inflow|fund/i.test(d.title),
+  );
+  if (cap) {
+    lines.push(`Capital flow signal: ${cap.title}.`);
+  } else if (sector.drivers[0]) {
+    lines.push(`Driver: ${sector.drivers[0].title}.`);
   }
   return lines.slice(0, 5);
 }
@@ -121,11 +126,11 @@ export function buildOpportunityFlags(
   const projected = newTotal > 0 ? massInSector / newTotal : 0;
   if (projected > 0.5) {
     flags.push(
-      `Adding this could push ${sl} to ~${Math.round(projected * 100)}% of GDV — concentration risk.`,
+      `Overexposed to ${sl} after this deal (~${Math.round(projected * 100)}% of GDV).`,
     );
   }
   if (enriched.riskScore > avgPortfolioRisk + 8) {
-    flags.push("Planning / delivery risk profile above typical portfolio book.");
+    flags.push("Planning risk above portfolio average.");
   }
   return flags;
 }

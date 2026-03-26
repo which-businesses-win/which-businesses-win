@@ -4,54 +4,51 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import DealTerminal from "@/components/deal-terminal/DealTerminal";
+import { DealTerminal, InvestmentMemoPanel } from "@/components/deal-terminal";
 import type { DealTerminalModel } from "@/components/deal-terminal/types";
-import type { DealSignalImpact } from "@/lib/deals/signalImpact";
-import type { DealSensitivityResult } from "@/lib/deals/sensitivity";
+import type { DealDetailMarket } from "@/lib/deals/dealDetailResponse";
+
 type DealApiPayload = {
   deal: {
+    id: string;
     name: string;
     location: string;
     sector: string;
     baseIRR: number;
+    stressedIRR: number;
     planningRisk: string;
     decision: string;
+    market: DealDetailMarket | null;
   };
-  signalImpact: DealSignalImpact | null;
-  adjustedIRR: number;
-  adjustedStressedIRR: number;
-  alert: "upgraded" | "risk" | null;
-  sensitivity: DealSensitivityResult | null;
   matchError: string | null;
   message?: string;
 };
 
 function toTerminalModel(p: DealApiPayload): DealTerminalModel | null {
-  if (!p.signalImpact || p.matchError) return null;
+  if (!p.deal.market || p.matchError) return null;
   return {
     deal: {
       name: p.deal.name,
       location: p.deal.location,
       sector: p.deal.sector,
       baseIRR: p.deal.baseIRR,
+      stressedIRR: p.deal.stressedIRR,
       planningRisk: p.deal.planningRisk,
       decision: p.deal.decision,
+      market: p.deal.market,
     },
-    signalImpact: p.signalImpact,
-    adjustedIRR: p.adjustedIRR,
-    adjustedStressedIRR: p.adjustedStressedIRR,
-    alert: p.alert,
-    sensitivity: p.sensitivity,
   };
 }
 
 export default function DealDetailPage() {
   const params = useParams();
   const id = typeof params.id === "string" ? params.id : "";
+  const [payload, setPayload] = useState<DealApiPayload | null>(null);
   const [model, setModel] = useState<DealTerminalModel | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [signalsUpdatedAt, setSignalsUpdatedAt] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) {
@@ -61,29 +58,33 @@ export default function DealDetailPage() {
     }
     let cancelled = false;
     setLoading(true);
-    fetch(`/api/deals/${encodeURIComponent(id)}`, { cache: "no-store" })
-      .then((r) => {
+    Promise.all([
+      fetch(`/api/deals/${encodeURIComponent(id)}`, { cache: "no-store" }).then((r) => {
         if (r.status === 404) throw new Error("Deal not found");
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json() as Promise<DealApiPayload>;
-      })
-      .then((p) => {
+      }),
+      fetch("/api/market-meta", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
+    ])
+      .then(([p, meta]) => {
         if (cancelled) return;
-        const m = toTerminalModel(p);
-        if (!m) {
-          setError(
-            p.message ?? p.matchError ?? "Market Signal unavailable for this deal",
-          );
-          setModel(null);
-        } else {
-          setModel(m);
-          setError(null);
-        }
+        setPayload(p);
+        setModel(toTerminalModel(p));
+        setError(null);
+        const at =
+          meta && typeof meta === "object" && "lastRefreshedAt" in meta
+            ? (meta as { lastRefreshedAt?: string | null }).lastRefreshedAt ?? null
+            : null;
+        setSignalsUpdatedAt(at);
       })
       .catch((e: unknown) => {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : "Failed to load");
+          setPayload(null);
           setModel(null);
+          setSignalsUpdatedAt(null);
         }
       })
       .finally(() => {
@@ -93,6 +94,8 @@ export default function DealDetailPage() {
       cancelled = true;
     };
   }, [id]);
+
+  const dealName = payload?.deal?.name ?? payload?.deal?.location;
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -113,8 +116,25 @@ export default function DealDetailPage() {
           data={model}
           detailOpen={detailOpen}
           onToggleDetail={() => setDetailOpen((v) => !v)}
+          signalsUpdatedAt={signalsUpdatedAt}
           className="mb-6"
         />
+      ) : payload?.deal ? (
+        <div className="mb-6 rounded-xl border border-deal-orange/40 bg-zinc-950/50 px-4 py-4 text-sm text-deal-text">
+          <p className="font-semibold text-deal-orange">Market signal unavailable</p>
+          <p className="mt-2 text-deal-muted">
+            {payload.message ??
+              payload.matchError ??
+              "Map this deal’s sector to a live sector slug to unlock the Market Signal overlay."}
+          </p>
+          <p className="mt-3 text-lg font-semibold tabular-nums text-deal-text">
+            Base IRR: {payload.deal.baseIRR.toFixed(1)}%
+          </p>
+        </div>
+      ) : null}
+
+      {payload?.deal?.id ? (
+        <InvestmentMemoPanel dealId={payload.deal.id} dealName={dealName} />
       ) : null}
     </div>
   );

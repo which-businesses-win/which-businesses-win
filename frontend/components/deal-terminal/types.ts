@@ -1,19 +1,15 @@
-import type { DealSignalImpact } from "@/lib/deals/signalImpact";
-import type { DealSensitivityResult } from "@/lib/deals/sensitivity";
+import type { DealDetailMarket } from "@/lib/deals/dealDetailResponse";
 
-/** Subset of GET /api/deals/:id used by DealTerminal */
+/** Payload for DealTerminal — matches GET /api/deals/:id `deal` when `market` is present */
 export type DealTerminalModel = {
   deal: {
     name: string;
     location: string;
     sector: string;
     baseIRR: number;
+    stressedIRR: number;
     planningRisk: string;
     decision: string;
+    market: DealDetailMarket;
   };
-  signalImpact: DealSignalImpact;
-  adjustedIRR: number;
-  adjustedStressedIRR: number;
-  alert: "upgraded" | "risk" | null;
-  sensitivity: DealSensitivityResult | null;
 };

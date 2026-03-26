@@ -20,6 +20,9 @@ type DealApiPayload = {
     decision: string;
     market: DealDetailMarket | null;
     actions?: DealAction[];
+    units?: number;
+    avgUnitSize?: number;
+    siteArea?: number;
   };
   matchError: string | null;
   message?: string;
@@ -38,6 +41,11 @@ function toTerminalModel(p: DealApiPayload): DealTerminalModel | null {
       decision: p.deal.decision,
       market: p.deal.market,
       actions: p.deal.actions,
+      ...(p.deal.units != null ? { units: p.deal.units } : {}),
+      ...(p.deal.avgUnitSize != null
+        ? { avgUnitSize: p.deal.avgUnitSize }
+        : {}),
+      ...(p.deal.siteArea != null ? { siteArea: p.deal.siteArea } : {}),
     },
   };
 }

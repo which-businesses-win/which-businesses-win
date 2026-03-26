@@ -50,6 +50,10 @@ export type DealAction = {
   /** 0–1 */
   confidence: number;
   type?: DealActionType;
+  /** Strongest negative driver that drove this action — for explainability / debugging (not shown in UI yet). */
+  source?: string;
+  /** Planning/density trim % reflected in `text` and unit-level formatting */
+  densityPct?: 5 | 10 | 15;
 };
 
 /** Bull / base / bear IRR from pillar scenario model (anchored to deal base IRR). */

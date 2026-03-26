@@ -1,6 +1,14 @@
-import type { DealAction } from "@/lib/deals/dealDetailResponse";
+import type { DealAction, DealMarketDriver } from "@/lib/deals/dealDetailResponse";
 
 type DriverLike = { text: string; type?: string; impact?: number };
+
+/** Inputs needed to derive one operator action (GET /api/deals/:id). */
+export type GenerateActionsDealInput = {
+  market: { drivers: DealMarketDriver[] };
+  units?: number | null;
+  avgUnitSize?: number | null;
+  siteArea?: number | null;
+};
 
 export function label(c: number): string {
   if (c > 0.75) return "likely achievable";
@@ -8,11 +16,36 @@ export function label(c: number): string {
   return "uncertain";
 }
 
+function magnitudePct(absImpact: number): 5 | 10 | 15 {
+  if (absImpact > 2.5) return 15;
+  if (absImpact > 1.5) return 10;
+  return 5;
+}
+
+/** Density planning line: unit counts when `units` present; otherwise `action.text` (e.g. ~5/~10/~15%). */
+function densityActionLine(action: DealAction, units?: number | null): string {
+  if (action.type !== "planning") return action.text;
+  if (units == null || units <= 0) return action.text;
+  const reductionPercent = action.densityPct ?? 10;
+  const newUnits = Math.round(units * (1 - reductionPercent / 100));
+  return `Reduce from ${units} → ~${newUnits} units`;
+}
+
 /**
- * One operator action: prefer **strongest negative driver** (the problem), else tailwind on positives, else fallback.
+ * Final action line for UI — mirrors server logic (unit line when `deal.units` + density action).
+ */
+export function formatActionText(
+  action: DealAction,
+  deal: { units?: number | null },
+): string {
+  return densityActionLine(action, deal.units);
+}
+
+/**
+ * One operator action: map **only** from the strongest negative driver; else a single generic fallback.
  * UI uses `actions[0]` only.
  */
-export function generateActions(deal: any): DealAction[] {
+export function generateActions(deal: GenerateActionsDealInput): DealAction[] {
   const drivers: DriverLike[] = deal.market?.drivers || [];
 
   const topNegative = [...drivers]
@@ -21,17 +54,39 @@ export function generateActions(deal: any): DealAction[] {
       (a, b) => Math.abs(b.impact ?? 0) - Math.abs(a.impact ?? 0),
     )[0];
 
-  const fromProblem = resolveFromTopNegative(topNegative);
-  if (fromProblem) {
-    return [fromProblem];
+  if (!topNegative) {
+    return [fallbackAction()];
   }
 
-  return [fallbackFromDrivers(drivers)];
+  const imp = topNegative.impact;
+  if (
+    typeof imp === "number" &&
+    Number.isFinite(imp) &&
+    Math.abs(imp) < 0.8
+  ) {
+    return [
+      {
+        text: "Refine scheme assumptions",
+        impact: 0.5,
+        confidence: 0.5,
+        source: topNegative.text,
+      },
+    ];
+  }
+
+  const fromProblem = resolveFromTopNegative(topNegative);
+  if (fromProblem) {
+    const base = { ...fromProblem, source: topNegative.text };
+    return [{ ...base, text: densityActionLine(base, deal.units) }];
+  }
+
+  return [{ ...fallbackAction(), source: topNegative.text }];
 }
 
-function resolveFromTopNegative(top: DriverLike | undefined): DealAction | null {
-  if (!top) return null;
+function resolveFromTopNegative(top: DriverLike): DealAction | null {
   const t = top.text.toLowerCase();
+  const absImpact = Math.abs(top.impact ?? 0);
+  const pct = magnitudePct(absImpact);
 
   if (
     t.includes("planning") ||
@@ -39,9 +94,11 @@ function resolveFromTopNegative(top: DriverLike | undefined): DealAction | null 
     t.includes("consent")
   ) {
     return {
-      text: "Reduce density ~10%",
+      text: `Reduce density by ~${pct}%`,
       impact: 1.8,
       confidence: 0.72,
+      type: "planning",
+      densityPct: pct,
     };
   }
 
@@ -55,6 +112,7 @@ function resolveFromTopNegative(top: DriverLike | undefined): DealAction | null 
       text: "Lock structural package early",
       impact: 1.2,
       confidence: 0.65,
+      type: "cost",
     };
   }
 
@@ -67,6 +125,7 @@ function resolveFromTopNegative(top: DriverLike | undefined): DealAction | null 
       text: "Shift mix toward 2-bed units",
       impact: 1.2,
       confidence: 0.65,
+      type: "design",
     };
   }
 
@@ -75,6 +134,7 @@ function resolveFromTopNegative(top: DriverLike | undefined): DealAction | null 
       text: "Reduce retail GIA; add residential upside",
       impact: 1.4,
       confidence: 0.61,
+      type: "design",
     };
   }
 
@@ -83,42 +143,16 @@ function resolveFromTopNegative(top: DriverLike | undefined): DealAction | null 
       text: "Phase COD around grid offer",
       impact: 1.3,
       confidence: 0.63,
+      type: "phasing",
     };
   }
 
   return null;
 }
 
-/** When no negative maps cleanly — use positive tailwinds, then generic fallback */
-function fallbackFromDrivers(drivers: DriverLike[]): DealAction {
-  const hasCapital = drivers.some(
-    (d) =>
-      d.type === "pos" &&
-      d.text.toLowerCase().includes("capital"),
-  );
-  const hasDemand = drivers.some(
-    (d) =>
-      d.type === "pos" &&
-      d.text.toLowerCase().includes("demand"),
-  );
-
-  if (hasCapital) {
-    return {
-      text: "Phase delivery forward",
-      impact: 1.0,
-      confidence: 0.6,
-    };
-  }
-  if (hasDemand) {
-    return {
-      text: "Shift mix toward 2-bed units",
-      impact: 1.2,
-      confidence: 0.65,
-    };
-  }
-
+function fallbackAction(): DealAction {
   return {
-    text: "Optimise unit mix",
+    text: "Optimise unit mix toward demand",
     impact: 0.8,
     confidence: 0.5,
   };

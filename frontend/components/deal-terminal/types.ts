@@ -13,5 +13,9 @@ export type DealTerminalModel = {
     market: DealDetailMarket;
     /** Operator layer — typically one item */
     actions?: DealAction[];
+    /** Optional — when set, action copy can reference unit counts */
+    units?: number;
+    avgUnitSize?: number;
+    siteArea?: number;
   };
 };

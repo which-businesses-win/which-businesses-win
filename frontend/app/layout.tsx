@@ -28,7 +28,14 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">
+        <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+        <footer className="mt-auto mt-12 px-4 py-6 text-center text-xs text-deal-muted/50">
+          {
+            "This information is provided for general informational purposes only and does not constitute financial, investment, or development advice. You should seek independent professional advice before making any decisions."
+          }
+        </footer>
+      </body>
     </html>
   );
 }

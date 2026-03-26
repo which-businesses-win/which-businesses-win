@@ -34,6 +34,10 @@ model Deal {
   decision      String
   /// correct | incorrect | pending — set when an outcome exists (pending reserved for future use).
   evaluation    String?
+  /// Optional unit-level facts for deal-specific actions / reporting (nullable in DB).
+  units           Int?
+  avgUnitSize     Float?
+  siteArea        Float?
   createdAt     DateTime @default(now())
 
   snapshot SignalSnapshot?

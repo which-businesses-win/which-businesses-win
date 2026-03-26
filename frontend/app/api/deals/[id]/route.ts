@@ -68,7 +68,12 @@ export async function GET(request: Request, context: RouteContext) {
       : null,
   };
 
-  const actions = generateActions({ market });
+  const actions = generateActions({
+    market,
+    units: deal.units,
+    avgUnitSize: deal.avgUnitSize,
+    siteArea: deal.siteArea,
+  });
 
   return Response.json({
     deal: {
@@ -92,6 +97,9 @@ function serializeDeal(
     planningRisk: string;
     decision: string;
     evaluation: string | null;
+    units: number | null;
+    avgUnitSize: number | null;
+    siteArea: number | null;
     createdAt: Date;
     snapshot: {
       refusalRate: number;
@@ -111,6 +119,9 @@ function serializeDeal(
     planningRisk: deal.planningRisk,
     decision: deal.decision,
     evaluation: deal.evaluation,
+    ...(deal.units != null ? { units: deal.units } : {}),
+    ...(deal.avgUnitSize != null ? { avgUnitSize: deal.avgUnitSize } : {}),
+    ...(deal.siteArea != null ? { siteArea: deal.siteArea } : {}),
     createdAt: deal.createdAt.toISOString(),
     snapshot: deal.snapshot
       ? {

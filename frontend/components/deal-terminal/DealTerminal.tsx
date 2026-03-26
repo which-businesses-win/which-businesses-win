@@ -3,7 +3,7 @@
 import { useId, useMemo, useState } from "react";
 import { formatRelativeTime } from "@/lib/formatRelativeTime";
 import { getSignalLabel } from "@/lib/marketSignalsBoard";
-import { label } from "@/lib/actions";
+import { formatActionText, label } from "@/lib/actions";
 import { tldrDecisionVerb } from "@/lib/marketImpact";
 import type { DealMarketDriver } from "@/lib/deals/dealDetailResponse";
 import type { DealTerminalModel } from "./types";
@@ -168,9 +168,11 @@ export default function DealTerminal({
 
       {primaryAction ? (
         <div className="mt-3 space-y-1">
-          <div className="text-sm text-deal-text">→ {primaryAction.text}</div>
+          <div className="text-sm text-deal-text">
+            → {formatActionText(primaryAction, deal)}
+          </div>
           <div className="text-xs tabular-nums text-deal-muted/60">
-            +{primaryAction.impact.toFixed(1)}% IRR · {label(primaryAction.confidence)}
+            +{primaryAction.impact.toFixed(1)}% · {label(primaryAction.confidence)}
           </div>
         </div>
       ) : null}

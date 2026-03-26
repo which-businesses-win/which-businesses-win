@@ -108,6 +108,9 @@ type DealSignalApiPayload = {
     decision: string;
     market: DealDetailMarket | null;
     actions?: DealAction[];
+    units?: number;
+    avgUnitSize?: number;
+    siteArea?: number;
   };
   matchError: string | null;
   message?: string;
@@ -1117,6 +1120,15 @@ export default function Home() {
               decision: dealSignalPayload.deal.decision,
               market: dealSignalPayload.deal.market,
               actions: dealSignalPayload.deal.actions,
+              ...(dealSignalPayload.deal.units != null
+                ? { units: dealSignalPayload.deal.units }
+                : {}),
+              ...(dealSignalPayload.deal.avgUnitSize != null
+                ? { avgUnitSize: dealSignalPayload.deal.avgUnitSize }
+                : {}),
+              ...(dealSignalPayload.deal.siteArea != null
+                ? { siteArea: dealSignalPayload.deal.siteArea }
+                : {}),
             },
           }}
         />

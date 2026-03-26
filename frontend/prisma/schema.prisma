@@ -7,6 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// RSS / ingest stream — separate from planning `SignalSnapshot`.
 model Signal {
   id         String   @id @default(cuid())
   title      String
@@ -16,4 +17,120 @@ model Signal {
   confidence Float
   date       DateTime
   firstSeen  DateTime @default(now())
+}
+
+/// Longitudinal deal record — decision → snapshot → outcome.
+model Deal {
+  id            String   @id @default(cuid())
+  /// Optional display name — defaults to location in API if unset.
+  name          String?
+  /// Gross development value weight for portfolio (£ millions).
+  gdv           Float    @default(1)
+  location      String
+  sector        String
+  baseIRR       Float
+  stressedIRR   Float
+  planningRisk  String
+  decision      String
+  /// correct | incorrect | pending — set when an outcome exists (pending reserved for future use).
+  evaluation    String?
+  createdAt     DateTime @default(now())
+
+  snapshot SignalSnapshot?
+  outcome  Outcome?
+}
+
+model SignalSnapshot {
+  id           String   @id @default(cuid())
+  dealId       String   @unique
+  refusalRate  Float
+  nearbyCount  Int
+  drivers      String
+  createdAt    DateTime @default(now())
+
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+}
+
+model Outcome {
+  id         String   @id @default(cuid())
+  dealId     String   @unique
+  result     String
+  actualIRR  Float?
+  notes      String?
+  recordedAt DateTime @default(now())
+
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+}
+
+/// Fetched RSS / feed items before AI classification.
+model RawArticle {
+  id         String   @id @default(cuid())
+  title      String
+  content    String
+  source     String
+  date       DateTime
+  processed  Boolean  @default(false)
+  /// Stable key (hash of link or title+date) — dedupe across runs.
+  dedupeKey  String   @unique
+  createdAt  DateTime @default(now())
+}
+
+/// Ingested market intelligence — planning, capital, demand, etc.
+model RawSignal {
+  id         String   @id @default(cuid())
+  title      String
+  source     String
+  date       DateTime
+  category   String
+  sentiment  Float
+  strength   Float
+  /// JSON string[] of sector slugs (e.g. ["build-to-rent", "uk-housebuilders"])
+  sectors    String
+  summary    String
+  /// Canonical city (e.g. London) or UK for national — see `locationNormalize`.
+  locationName  String?
+  locationType  String?
+  /// Set when this row was produced from automated RSS → AI pipeline.
+  articleId  String?
+  createdAt  DateTime @default(now())
+}
+
+/// Daily geo score per sector + city — enables location deltas & trends.
+model GeoScoreSnapshot {
+  id         String   @id @default(cuid())
+  sectorId   String
+  location   String
+  bucketDate DateTime
+  score      Float
+  createdAt  DateTime @default(now())
+
+  @@unique([sectorId, location, bucketDate])
+}
+
+/// Ingested opportunity (agents, pipeline, manual) — ranked vs live signals + portfolio.
+model SourcedDeal {
+  id           String   @id @default(cuid())
+  name         String
+  location     String
+  sector       String
+  gdv          Float
+  units        Int?
+  description  String
+  source       String
+  date         DateTime
+  /// Estimated base IRR (%) before signal overlay.
+  estimatedIRR Float    @default(15)
+  createdAt    DateTime @default(now())
+}
+
+/// Daily (or per-run) sector score history — enables delta & trends.
+model MarketSectorSnapshot {
+  id         String   @id @default(cuid())
+  sectorId   String
+  bucketDate DateTime
+  scoresJson String
+  totalScore Int
+  createdAt  DateTime @default(now())
+
+  @@unique([sectorId, bucketDate])
 }

@@ -9,42 +9,56 @@ import {
   getImpactFlag,
   type ConvictionLevel,
 } from "@/lib/conviction";
+import {
+  extractLocation,
+  isNearby,
+  locationMatchScore,
+  UK_LOCATIONS,
+} from "@/lib/locationExtract";
+import {
+  calculateSiteMetrics,
+  generateSiteInsight,
+  type SiteInsight,
+  type SiteMetrics,
+} from "@/lib/siteAnalysis";
+import {
+  fetchPlanningEntities,
+  planningEntityToSignalRow,
+} from "@/lib/planningData";
+import {
+  detectClusters,
+  detectPlanningPressure,
+  inferRssDecisionType,
+} from "@/lib/planningIntel";
+import type {
+  DecisionType,
+  PlanningCluster,
+  PlanningPressure,
+} from "@/lib/planningIntel";
+import {
+  distanceKm,
+  geocode,
+  SITE_RADIUS_KM,
+  type GeoCoords,
+} from "@/lib/geo";
 import { prisma } from "@/lib/prisma";
+import { detectTrendShift } from "@/lib/trendShift";
+import type { TrendShift } from "@/lib/trendShift";
 
 const parser = new Parser();
 
 export const FEEDS = [
   "https://www.planningresource.co.uk/rss",
+  "https://www.theplanner.co.uk/feed",
   "https://www.propertyweek.com/rss",
   "https://feeds.bbci.co.uk/news/business/rss.xml",
 ];
 
-export const UK_LOCATIONS = [
-  "london",
-  "manchester",
-  "birmingham",
-  "leeds",
-  "bristol",
-  "liverpool",
-  "sheffield",
-  "nottingham",
-  "cambridge",
-  "oxford",
-  "cornwall",
-  "devon",
-];
+export { UK_LOCATIONS, extractLocation };
 
-export function extractLocation(title: string): string | null {
-  const t = title.toLowerCase();
-
-  for (const loc of UK_LOCATIONS) {
-    if (t.includes(loc)) {
-      return loc;
-    }
-  }
-
-  return null;
-}
+export type { DecisionType, PlanningCluster, PlanningPressure } from "@/lib/planningIntel";
+export type { SiteInsight, SiteMetrics } from "@/lib/siteAnalysis";
+export type { GeoCoords } from "@/lib/geo";
 
 export type IngestSignal = {
   title?: string;
@@ -61,10 +75,14 @@ export type IngestSignal = {
   reasons: string[];
   location?: string | null;
   date?: string;
+  /** Structured planning direction when known (official + RSS inference). */
+  decisionType?: DecisionType;
+  /** Geocoded from `location` (Nominatim); used for radius-based site analysis. */
+  coords?: GeoCoords | null;
 };
 
 /** Before conviction / impact-flag enrichment. */
-type SignalRow = Omit<IngestSignal, "conviction" | "impactFlag">;
+export type SignalRow = Omit<IngestSignal, "conviction" | "impactFlag">;
 
 export type IngestOptions = {
   targetLocation?: string | null;
@@ -95,43 +113,55 @@ export function scoreSignal(title: string) {
   if (t.includes("refused")) {
     score += 50;
     type = "planning";
-    reasons.push("Planning refusal (hard negative)");
+    reasons.push("Nearby planning refusals increasing");
     weight = 1.5;
   }
 
   if (t.includes("approved") || t.includes("granted")) {
     score += 35;
     type = "planning";
-    reasons.push("Planning approval (positive comp)");
+    reasons.push("Local planning approvals (positive comps)");
   }
 
   if (t.includes("appeal")) {
     score += 25;
     type = "planning";
-    reasons.push("Appeal activity (policy uncertainty)");
+    reasons.push("Appeals in play — policy uncertainty");
+  }
+
+  if (t.includes("application") || t.includes("submitted")) {
+    score += 15;
+    if (type === "general") type = "planning";
+    reasons.push("Active application pipeline");
+  }
+
+  if (t.includes("committee") || t.includes("decision")) {
+    score += 20;
+    type = "planning";
+    reasons.push("Committee or decision in the news");
   }
 
   if (t.includes("local plan") || t.includes("policy")) {
     score += 30;
     type = "planning";
-    reasons.push("Policy shift signal");
+    reasons.push("Policy or local plan shift");
   }
 
   if (t.includes("housing shortage") || t.includes("targets missed")) {
     score += 20;
-    reasons.push("Supply pressure (positive for approvals)");
+    reasons.push("Housing supply pressure (can help approvals)");
   }
 
   if (t.includes("closures") || t.includes("administration")) {
     score += 25;
     type = "retail";
-    reasons.push("Retail distress (tenant risk)");
+    reasons.push("Retail demand weakening locally");
   }
 
   if (t.includes("interest rate") || t.includes("inflation")) {
     score += 15;
     if (type === "general") type = "macro";
-    reasons.push("Macro pressure");
+    reasons.push("Financing and cost pressure (rates / inflation)");
   }
 
   const weightedScore = Math.round(score * weight);
@@ -145,16 +175,6 @@ export function scoreSignal(title: string) {
   };
 }
 
-function locationMatchesDeal(
-  extracted: string,
-  target: string,
-): boolean {
-  const a = extracted.trim().toLowerCase();
-  const b = target.trim().toLowerCase();
-  if (!a || !b) return false;
-  return a === b || a.includes(b) || b.includes(a);
-}
-
 export async function getIngestSignals(
   options?: IngestOptions,
 ): Promise<{
@@ -162,11 +182,20 @@ export async function getIngestSignals(
   insightSignals: IngestSignal[];
   trends: TrendRow[];
   changes: ChangeItem[];
+  trendShift: TrendShift | null;
+  clusters: PlanningCluster[];
+  pressure: PlanningPressure | null;
+  nearbySignals: IngestSignal[];
+  siteMetrics: SiteMetrics;
+  siteInsight: SiteInsight | null;
+  siteCoords: GeoCoords | null;
 }> {
   const targetLocation = options?.targetLocation?.trim() || null;
   const rawSector = options?.targetSector?.trim().toLowerCase() || null;
   const targetSector =
     rawSector && rawSector !== "general" ? rawSector : null;
+
+  const siteCoords = targetLocation ? await geocode(targetLocation) : null;
 
   const results: SignalRow[] = [];
 
@@ -192,18 +221,30 @@ export async function getIngestSignals(
 
         let relevance = 0;
 
-        if (
-          location &&
-          targetLocation &&
-          locationMatchesDeal(location, targetLocation)
-        ) {
+        if (isNearby(location, targetLocation)) {
           relevance += 40;
           reasons.push("Matches deal location");
+        } else {
+          const lm = locationMatchScore(location, targetLocation);
+          if (lm === 20) {
+            relevance += 20;
+            reasons.push("Nearby market (regional proximity)");
+          }
         }
 
         if (targetSector && type === targetSector) {
           relevance += 25;
           reasons.push("Sector match");
+        }
+
+        if (targetSector === "residential" && type === "planning") {
+          relevance += 20;
+          reasons.push("Residential investor: planning exposure");
+        }
+
+        if (targetSector === "retail" && type === "retail") {
+          relevance += 20;
+          reasons.push("Retail deal: sector-aligned signal");
         }
 
         let planningWeight = 0;
@@ -217,6 +258,12 @@ export async function getIngestSignals(
         const signalDate = parsePubDate(item.pubDate);
 
         const rowTitle = title.trim() || "(untitled)";
+        const rssDecision = inferRssDecisionType(title);
+
+        let coords: GeoCoords | null = null;
+        if (location) {
+          coords = await geocode(location);
+        }
 
         results.push({
           title,
@@ -231,6 +278,8 @@ export async function getIngestSignals(
           reasons,
           location,
           date: item.pubDate,
+          ...(rssDecision !== undefined ? { decisionType: rssDecision } : {}),
+          ...(coords ? { coords } : {}),
         });
 
         try {
@@ -258,20 +307,85 @@ export async function getIngestSignals(
     }
   }
 
+  try {
+    const entities = await fetchPlanningEntities();
+    for (const app of entities) {
+      const { row, persistTitle } = planningEntityToSignalRow(app, {
+        targetLocation,
+        targetSector,
+      });
+      let coords: GeoCoords | null = null;
+      if (row.location) {
+        coords = await geocode(row.location);
+      }
+      results.push({ ...row, ...(coords ? { coords } : {}) });
+      const signalDate = parsePubDate(row.date);
+      try {
+        const existing = await prisma.signal.findFirst({
+          where: { title: persistTitle },
+        });
+        if (!existing) {
+          await prisma.signal.create({
+            data: {
+              title: persistTitle,
+              type: row.type,
+              location: row.location,
+              score: Math.round(Math.min(row.score, 1_000_000)),
+              confidence: row.confidence,
+              date: signalDate,
+            },
+          });
+        }
+      } catch (persistErr) {
+        console.error("Planning signal persist failed:", persistErr);
+      }
+    }
+  } catch (e) {
+    console.error("Planning ingest failed:", e);
+  }
+
   const rising = results.filter((s) => s.score > 70);
+
+  const trendShift = detectTrendShift(results);
 
   const enriched: IngestSignal[] = results.map((s) => ({
     ...s,
-    conviction: getConviction(s.score),
-    impactFlag: getImpactFlag(s.score),
+    conviction: getConviction(s.score, s.reasons),
+    impactFlag: getImpactFlag(s.score, s.reasons),
   }));
 
   const filtered = enriched
     .filter((s) => s.conviction !== "LOW")
-    .sort((a, b) => b.score - a.score);
+    .sort((a, b) => {
+      const aBoost = a.reasons.includes("Source: UK Planning Data") ? 20 : 0;
+      const bBoost = b.reasons.includes("Source: UK Planning Data") ? 20 : 0;
+      return b.score + bBoost - (a.score + aBoost);
+    });
 
   const topSignals = filtered.slice(0, 5);
   const insightSignals = filtered;
+
+  const clusters = detectClusters(enriched);
+  const pressure = detectPlanningPressure(enriched);
+
+  const nearbySignals =
+    targetLocation && siteCoords
+      ? enriched.filter((s) => {
+          if (!s.coords) return false;
+          return distanceKm(siteCoords, s.coords) <= SITE_RADIUS_KM;
+        })
+      : [];
+  const siteMetrics = calculateSiteMetrics(nearbySignals);
+  const siteInsight = targetLocation
+    ? siteCoords === null
+      ? {
+          level: "SITE NOT LOCATED",
+          message:
+            "Could not geocode this site. Try a fuller address or UK postcode.",
+          action: "Check spelling or add a more specific place name.",
+        }
+      : generateSiteInsight(siteMetrics)
+    : null;
 
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
@@ -306,5 +420,17 @@ export async function getIngestSignals(
     console.error("Trend aggregation failed:", trendErr);
   }
 
-  return { signals: topSignals, insightSignals, trends, changes };
+  return {
+    signals: topSignals,
+    insightSignals,
+    trends,
+    changes,
+    trendShift,
+    clusters,
+    pressure,
+    nearbySignals,
+    siteMetrics,
+    siteInsight,
+    siteCoords,
+  };
 }

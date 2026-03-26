@@ -3,11 +3,33 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* Deal terminal — single source for Tailwind + arbitrary gradients */
+  --deal-bg: #000000;
+  --deal-text: #ededed;
+  --deal-green: #00ff85;
+  --deal-green-soft: #00c96b;
+  --deal-green-hi: #5cffb3;
+  --deal-red: #ff3b3b;
+  --deal-yellow: #ffd84d;
+  --deal-muted: #6b7280;
+  --deal-border: #262626;
+  --deal-orange: #ff9f43;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-deal-bg: var(--deal-bg);
+  --color-deal-text: var(--deal-text);
+  --color-deal-green: var(--deal-green);
+  --color-deal-green-soft: var(--deal-green-soft);
+  --color-deal-green-hi: var(--deal-green-hi);
+  --color-deal-red: var(--deal-red);
+  --color-deal-yellow: var(--deal-yellow);
+  --color-deal-muted: var(--deal-muted);
+  --color-deal-border: var(--deal-border);
+  --color-deal-orange: var(--deal-orange);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -23,4 +45,24 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Investment memo: print / Save as PDF — isolate memo content */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #investment-memo-print,
+  #investment-memo-print * {
+    visibility: visible;
+  }
+  #investment-memo-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: #fff !important;
+    color: #171717 !important;
+    padding: 24px;
+  }
 }

@@ -18,28 +18,26 @@ export function generateInsight(
   if (planningSignals.length > 3) {
     insights.push({
       type: "risk",
-      message:
-        "Planning refusal signals increasing in target area — elevated volatility",
-      action:
-        "Expect resistance — consider density reduction or fallback scheme",
+      message: "Nearby planning refusals increasing — expect tougher committee outcomes",
+      action: "Reduce density or line up a credible fallback scheme",
     });
   }
 
   if (retailSignals.length > 2) {
     insights.push({
       type: "warning",
-      message: "Retail distress signals clustering — tenant demand risk",
-      action: "Stress-test income and covenant assumptions on retail exposure",
+      message: "Retail demand weakening locally — tenant risk is building",
+      action: "Stress-test rent and covenant before you rely on retail income",
     });
   }
 
   const topTrend = trends[0];
   if (topTrend && topTrend.count > 5) {
-    const where = topTrend.location ?? "the market (no location tag)";
+    const where = topTrend.location ?? "this market";
     insights.push({
       type: "opportunity",
-      message: `Approval comps emerging locally — ${topTrend.type} activity building in ${where}`,
-      action: "Supports planning case — review comparables for uplift",
+      message: `Local momentum — ${topTrend.type} activity is building in ${where}`,
+      action: "Use comparables to support value and planning narrative",
     });
   }
 

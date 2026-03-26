@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Which Businesses Win — Intelligence for development finance",
+  title: "PlanSureAI — Market Intelligence for Development Finance",
   description:
-    "Live deal intelligence for lenders, developers, and advisors. See which businesses win before you commit capital.",
+    "Live intelligence for UK development deals: capital flows, planning risk, IRR bridge, investment memos. Built for lenders, investors, and developers.",
 };
 
 export default function RootLayout({
